@@ -1,0 +1,4 @@
+[submodule "cpp/desktop-ping-pong/aether-client-cpp"]
+	path = cpp/desktop-ping-pong/aether-client-cpp
+	url = https://github.com/aethernetio/aether-client-cpp.git
+	branch = main
