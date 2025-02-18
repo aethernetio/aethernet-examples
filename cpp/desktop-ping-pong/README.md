@@ -18,7 +18,7 @@ Now we need to fetch third-party dependencies and apply patches. Depends of your
 ```
 ```sh
 #powershell
-./git_init.sh
+./git_init.ps1
 ```
 ```sh
 REM cmd.exe
@@ -52,6 +52,11 @@ if (NOT DEFINED AE_DISTILLATION)
   set(AE_DISTILLATION On)
 endif()
 
+# add user provided config wich will be included as regular .h file
+set(USER_CONFIG user_config.h)
+# ${USER_CONFIG} must be an absolute path or path to something listed in include directories
+include_directories(${CMAKE_CURRENT_LIST_DIR})
+
 # add lib aether dependency
 add_subdirectory(aether-client-cpp/aether aether)
 
@@ -59,11 +64,16 @@ add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE ping-pong.cpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE aether)
 ```
-There is two modes `aether` works with: [distillation mode](link/to/documenation) and production mode.
+There are two modes `aether` works with: [distillation mode](link/to/documenation) and production mode.
 By default `aether` builds in production mode, but for example only we set `AE_DISTILLATION` option to `On` in cmake script directly.
 In distillation mode `aether` configures all its inner objects in a default states and saves them to the file system.
 Look at the `build/state` directory.
-In production mode `aether` only loads objects with saved states from `build/state`. It allows not only save time and code to configure big objects, but, for more important, use saved state between application runs.
+In production mode `aether` only loads objects with saved states from `./state`.
+It allows not only save time and code to configure big objects, but, for more important, use saved state between application runs.
+
+To configure `aether` library we use configuration header file. All configuration options with its default values listed in `aether/config.h`.
+But user able provide his own through `USER_CONFIG` option.
+It must be absolute path or path relative to something listed in include directories.
 
 ### Where it all begins
 ```cpp
