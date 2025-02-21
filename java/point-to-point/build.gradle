@@ -1,0 +1,26 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url 'http://nexus.aethernet.io/repository/maven-releases/'
+        allowInsecureProtocol = true
+    }
+}
+
+application {
+    mainClass = 'io.aether.examples.PointToPoint'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+dependencies {
+    implementation 'io.aether:cloud-client:+'
+    implementation 'org.slf4j:slf4j-simple:2.0.16'
+ }
