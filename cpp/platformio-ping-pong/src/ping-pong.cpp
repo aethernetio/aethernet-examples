@@ -112,7 +112,15 @@ class Bob {
 };
 
 int AetherPingPongExample() {
-  auto aether_app = ae::AetherApp::Construct(ae::AetherAppConstructor{});
+  auto aether_app = ae::AetherApp::Construct(ae::AetherAppConstructor
+  {
+#if !AE_SUPPORT_REGISTRATION
+          []() {
+            auto fs = ae::MakePtr<ae::FileSystemHeaderFacility>(std::string(""));
+            return fs;
+          }
+#endif  // AE_SUPPORT_REGISTRATION
+  });
 
   ae::Ptr<Alice> alice;
   ae::Ptr<Bob> bob;

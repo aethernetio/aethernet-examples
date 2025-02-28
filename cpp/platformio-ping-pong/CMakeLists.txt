@@ -28,11 +28,11 @@ set(CMAKE_BUILD_TYPE "MinSizeRel")
 add_compile_definitions(CM_ESP32)
 
 if (NOT USER_CONFIG)
-  set(USER_CONFIG "../config/user_config_optimized.h")
+  set(USER_CONFIG "user_config.h")
 endif()
 
 if (NOT FS_INIT)
-  set(FS_INIT "../../../../config/file_system_init.h")
+  set(FS_INIT "file_system_init.h")
 endif()
 
 # enable doubles in unity tests
@@ -43,5 +43,7 @@ set(AE_DISTILLATION OFF CACHE BOOL "" FORCE)
 list(APPEND EXTRA_COMPONENT_DIRS "./src"
                                  ".pio/libdeps/esp-wrover-kit/Aether/aether"
 )
+
+include_directories("./src")
 
 project(Example LANGUAGES CXX C ASM)
