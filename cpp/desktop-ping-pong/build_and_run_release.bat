@@ -3,8 +3,7 @@ cd aether-client-cpp
 call git_init.bat
 cd ..
 mkdir build-example
-cd build-example
-cmake .. -G "Visual Studio 17 2022" -A Win32
-cmake --build . --config Release
-cd Release
+cmake -G "Visual Studio 17 2022" -A Win32 -B build-example
+cmake --build build-example --config Release
+cd build-example\Release
 ping-pong-example.exe
