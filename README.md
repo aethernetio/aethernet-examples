@@ -24,5 +24,3 @@ Client libraries are here:
 - **Java** - [github.com/aethernetio/client-java](https://github.com/aethernetio/client-java)
 - **C++** - [github.com/aethernetio/aether-client-cpp](https://github.com/aethernetio/aether-client-cpp)
 - **Arduino** - [github.com/aethernetio/aether-client-arduino-library](https://github.com/aethernetio/aether-client-arduino-library)
-
-For a more detailed description of the service, usage guidelines, and further documentation, please visit [aethernet.io](https://aethernet.io).
