@@ -23,12 +23,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 idf_build_set_property(CM_PLATFORM "ESP32")
 
-set(CMAKE_BUILD_TYPE "MinSizeRel")
+set(CMAKE_BUILD_TYPE "Debug")
 
 add_compile_definitions(CM_ESP32)
 
 if (NOT USER_CONFIG)
-  set(USER_CONFIG "user_config.h")
+  set(USER_CONFIG "user_config_hydrogen.h")
 endif()
 
 if (NOT FS_INIT)
@@ -38,7 +38,7 @@ endif()
 # enable doubles in unity tests
 add_compile_definitions("CONFIG_UNITY_ENABLE_DOUBLE")
 
-set(AE_DISTILLATION OFF CACHE BOOL "" FORCE)
+set(AE_DISTILLATION ON CACHE BOOL "" FORCE)
 
 get_filename_component(configName "${CMAKE_BINARY_DIR}" NAME)
 

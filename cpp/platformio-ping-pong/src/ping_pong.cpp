@@ -28,6 +28,11 @@
 
 #include "aether/aether_app.h"
 
+#include "aether/adapters/ethernet.h"
+#include "aether/adapters/esp32_wifi.h"
+
+static constexpr std::string_view kWifiSsid = "Test123";
+static constexpr std::string_view kWifiPass = "Test123";
 static constexpr auto kParentUid =
     ae::Uid{ae::MakeLiteralArray("3ac931653d37497087a6fa4ee27744e4")};
 
@@ -120,7 +125,22 @@ int AetherPingPongExample() {
             return fs;
           }
 #endif  // AE_SUPPORT_REGISTRATION
-  });
+  }
+#if defined AE_DISTILLATION
+          .Adapter([](ae::Ptr<ae::Domain> const& domain,
+                      ae::Aether::ptr const& aether) -> ae::Adapter::ptr {
+#  if defined ESP32_WIFI_ADAPTER_ENABLED
+            auto adapter = domain->CreateObj<ae::Esp32WifiAdapter>(
+                ae::GlobalId::kEsp32WiFiAdapter, aether, aether->poller,
+                std::string(kWifiSsid), std::string(kWifiPass));
+#  else
+            auto adapter = domain->CreateObj<ae::EthernetAdapter>(
+                ae::GlobalId::kEthernetAdapter, aether, aether->poller);
+#  endif
+            return adapter;
+          })
+#endif
+  );
 
   ae::Ptr<Alice> alice;
   ae::Ptr<Bob> bob;
