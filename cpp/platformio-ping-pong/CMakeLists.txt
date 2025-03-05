@@ -23,7 +23,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 idf_build_set_property(CM_PLATFORM "ESP32")
 
-set(CMAKE_BUILD_TYPE "Debug")
+set(CMAKE_BUILD_TYPE "MinSizeRel")
 
 add_compile_definitions(CM_ESP32)
 
