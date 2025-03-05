@@ -4,7 +4,17 @@ This is a simple ping pong example with aether client library. It registers two 
 The simplest example, but it covers a lot of things lib aether has: aether_app, object, actions, events, streams.
 
 ## Build
-Just open this folder in the Platformio IDE.
+Just open this folder in the Platformio IDE. For the question "Do you trust the author of the files in this folder" answer "Yes, I trust the authors".
+![](doc/pics/pic1.jpg)
+Change your WiFi SSID/PASS in the ping_pong.cpp
+```cpp
+static constexpr std::string_view kWifiSsid = "Test123";
+static constexpr std::string_view kWifiPass = "Test123";
+```
+Open the Platformio menu. Select your board and click on the "Build" menu item.
+![](doc/pics/pic2.jpg)
+After successful compilation, download the firmware by selecting the menu item "Upload and Monitor"
+![](doc/pics/pic3.jpg)
 
 ## Dive deep
 ### The recipe to build
