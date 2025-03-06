@@ -15,7 +15,6 @@
 cmake_minimum_required(VERSION 3.16.0)
 
 list( APPEND src_list
-  ping_pong_main.cpp
   ping_pong.cpp
 )
 
