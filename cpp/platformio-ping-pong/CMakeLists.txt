@@ -28,7 +28,7 @@ set(CMAKE_BUILD_TYPE "MinSizeRel")
 add_compile_definitions(CM_ESP32)
 
 if (NOT USER_CONFIG)
-  set(USER_CONFIG "user_config_hydrogen.h")
+  set(USER_CONFIG "user_config.h")
 endif()
 
 if (NOT FS_INIT)
