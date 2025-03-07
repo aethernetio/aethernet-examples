@@ -28,6 +28,17 @@
 
 #include "aether/aether_app.h"
 
+#include "aether/adapters/ethernet.h"
+#include "aether/adapters/esp32_wifi.h"
+
+#include <freertos/FreeRTOS.h>
+#include <esp_log.h>
+#include <esp_task_wdt.h>
+
+static constexpr std::string_view kWifiSsid = "Test123";
+static constexpr std::string_view kWifiPass = "Test123";
+static constexpr std::string_view kTag = "PingPong";
+
 static constexpr auto kParentUid =
     ae::Uid{ae::MakeLiteralArray("3ac931653d37497087a6fa4ee27744e4")};
 
@@ -40,6 +51,29 @@ constexpr ae::SafeStreamConfig kSafeStreamConfig{
     {},                              // send_confirm_timeout
     std::chrono::milliseconds{500},  // send_repeat_timeout
 };
+
+extern "C" void app_main();
+int AetherPingPongExample();
+
+void app_main(void) {
+  /*If you are using WDT at a given time, you must disable it by updating the
+  configuration, or simply deleting the WDT tasks for each processor core
+  using the following code:
+  esp_task_wdt_delete(xTaskGetIdleTaskHandleForCore(0));
+  esp_task_wdt_delete(xTaskGetIdleTaskHandleForCore(1));
+  In the future, WDT support will be included in the core code of the
+  Aether library.*/
+
+  esp_task_wdt_config_t config_wdt = {
+      .timeout_ms = 60000,
+      .idle_core_mask = 0,  // i.e. do not watch any idle task
+      .trigger_panic = true};
+
+  esp_err_t err = esp_task_wdt_reconfigure(&config_wdt);
+  if (err != 0) ESP_LOGE(std::string(kTag).c_str(), "Reconfigure WDT is failed!");
+
+  AetherPingPongExample();
+}
 
 class ClientRegister : public ae::Action<ClientRegister> {
   enum class State : std::uint8_t { kRegistration, kDone, kError };
@@ -120,7 +154,22 @@ int AetherPingPongExample() {
             return fs;
           }
 #endif  // AE_SUPPORT_REGISTRATION
-  });
+  }
+#if defined AE_DISTILLATION
+          .Adapter([](ae::Ptr<ae::Domain> const& domain,
+                      ae::Aether::ptr const& aether) -> ae::Adapter::ptr {
+#  if defined ESP32_WIFI_ADAPTER_ENABLED
+            auto adapter = domain->CreateObj<ae::Esp32WifiAdapter>(
+                ae::GlobalId::kEsp32WiFiAdapter, aether, aether->poller,
+                std::string(kWifiSsid), std::string(kWifiPass));
+#  else
+            auto adapter = domain->CreateObj<ae::EthernetAdapter>(
+                ae::GlobalId::kEthernetAdapter, aether, aether->poller);
+#  endif
+            return adapter;
+          })
+#endif
+  );
 
   ae::Ptr<Alice> alice;
   ae::Ptr<Bob> bob;

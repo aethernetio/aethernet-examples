@@ -38,10 +38,12 @@ endif()
 # enable doubles in unity tests
 add_compile_definitions("CONFIG_UNITY_ENABLE_DOUBLE")
 
-set(AE_DISTILLATION OFF CACHE BOOL "" FORCE)
+set(AE_DISTILLATION ON CACHE BOOL "" FORCE)
+
+get_filename_component(configName "${CMAKE_BINARY_DIR}" NAME)
 
 list(APPEND EXTRA_COMPONENT_DIRS "./src"
-                                 ".pio/libdeps/esp-wrover-kit/Aether/aether"
+                                 "${CMAKE_SOURCE_DIR}/.pio/libdeps/${configName}/Aether/aether"
 )
 
 include_directories("./src")
