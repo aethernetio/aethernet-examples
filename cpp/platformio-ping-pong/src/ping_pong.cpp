@@ -46,10 +46,10 @@ constexpr ae::SafeStreamConfig kSafeStreamConfig{
     std::numeric_limits<std::uint16_t>::max(),                // buffer_capacity
     (std::numeric_limits<std::uint16_t>::max() / 2) - 1,      // window_size
     (std::numeric_limits<std::uint16_t>::max() / 2) - 1 - 1,  // max_data_size
-    4,                               // max_repeat_count
-    std::chrono::milliseconds{500},  // wait_confirm_timeout
+    10,                              // max_repeat_count
+    std::chrono::milliseconds{600},  // wait_confirm_timeout
     {},                              // send_confirm_timeout
-    std::chrono::milliseconds{500},  // send_repeat_timeout
+    std::chrono::milliseconds{400},  // send_repeat_timeout
 };
 
 extern "C" void app_main();
@@ -70,7 +70,8 @@ void app_main(void) {
       .trigger_panic = true};
 
   esp_err_t err = esp_task_wdt_reconfigure(&config_wdt);
-  if (err != 0) ESP_LOGE(std::string(kTag).c_str(), "Reconfigure WDT is failed!");
+  if (err != 0)
+    ESP_LOGE(std::string(kTag).c_str(), "Reconfigure WDT is failed!");
 
   AetherPingPongExample();
 }
@@ -135,26 +136,27 @@ class Bob {
 
  private:
   void OnNewStream(ae::Uid destination_uid, ae::StreamId stream_id,
-                   ae::Ptr<ae::ByteStream> message_stream);
+                   std::unique_ptr<ae::ByteStream> message_stream);
   void StreamCreated(ae::ByteStream& stream);
 
   ae::Aether::ptr aether_;
   ae::Client::ptr client_bob_;
-  ae::Ptr<ae::P2pSafeStream> p2pstream_;
+  std::unique_ptr<ae::P2pSafeStream> p2pstream_;
   ae::Subscription new_stream_receive_subscription_;
   ae::Subscription message_receive_subscription_;
 };
 
 int AetherPingPongExample() {
-  auto aether_app = ae::AetherApp::Construct(ae::AetherAppConstructor
-  {
+  auto aether_app = ae::AetherApp::Construct(
+      ae::AetherAppConstructor{
 #if !AE_SUPPORT_REGISTRATION
           []() {
-            auto fs = ae::MakePtr<ae::FileSystemHeaderFacility>(std::string(""));
+            auto fs =
+                ae::MakePtr<ae::FileSystemHeaderFacility>(std::string(""));
             return fs;
           }
 #endif  // AE_SUPPORT_REGISTRATION
-  }
+      }
 #if defined AE_DISTILLATION
           .Adapter([](ae::Ptr<ae::Domain> const& domain,
                       ae::Aether::ptr const& aether) -> ae::Adapter::ptr {
@@ -171,8 +173,8 @@ int AetherPingPongExample() {
 #endif
   );
 
-  ae::Ptr<Alice> alice;
-  ae::Ptr<Bob> bob;
+  std::unique_ptr<Alice> alice;
+  std::unique_ptr<Bob> bob;
 
   auto client_register_action = ClientRegister{*aether_app};
 
@@ -180,9 +182,9 @@ int AetherPingPongExample() {
   auto on_registered =
       client_register_action.SubscribeOnResult([&](auto const& action) {
         auto [client_alice, client_bob] = action.get_clients();
-        alice = ae::MakePtr<Alice>(*aether_app, std::move(client_alice),
-                                   client_bob->uid());
-        bob = ae::MakePtr<Bob>(*aether_app, std::move(client_bob));
+        alice = ae::make_unique<Alice>(*aether_app, std::move(client_alice),
+                                       client_bob->uid());
+        bob = ae::make_unique<Bob>(*aether_app, std::move(client_bob));
       });
 
   // Subscription to Error event
@@ -253,7 +255,7 @@ Alice::Alice(ae::AetherApp& aether_app, ae::Client::ptr client_alice,
       client_alice_{std::move(client_alice)},
       p2pstream_{ae::ActionContext{*aether_->action_processor},
                  kSafeStreamConfig,
-                 ae::MakePtr<ae::P2pStream>(
+                 ae::make_unique<ae::P2pStream>(
                      ae::ActionContext{*aether_->action_processor},
                      client_alice_, bobs_uid, ae::StreamId{0})},
       interval_sender_{ae::ActionContext{*aether_->action_processor},
@@ -308,12 +310,12 @@ Bob::Bob(ae::AetherApp& aether_app, ae::Client::ptr client_bob)
               *this, ae::MethodPtr<&Bob::OnNewStream>{})} {}
 
 void Bob::OnNewStream(ae::Uid destination_uid, ae::StreamId stream_id,
-                      ae::Ptr<ae::ByteStream> message_stream) {
-  p2pstream_ = ae::MakePtr<ae::P2pSafeStream>(
+                      std::unique_ptr<ae::ByteStream> message_stream) {
+  p2pstream_ = ae::make_unique<ae::P2pSafeStream>(
       ae::ActionContext{*aether_->action_processor}, kSafeStreamConfig,
-      ae::MakePtr<ae::P2pStream>(ae::ActionContext{*aether_->action_processor},
-                                 client_bob_, destination_uid, stream_id,
-                                 std::move(message_stream)));
+      ae::make_unique<ae::P2pStream>(
+          ae::ActionContext{*aether_->action_processor}, client_bob_,
+          destination_uid, stream_id, std::move(message_stream)));
   StreamCreated(*p2pstream_);
 }
 
