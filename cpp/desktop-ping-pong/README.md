@@ -51,8 +51,8 @@ It must be absolute path or path relative to something listed in include directo
 int main() {
   auto aether_app = ae::AetherApp::Construct(ae::AetherAppConstructor{});
 
-  ae::Ptr<Alice> alice;
-  ae::Ptr<Bob> bob;
+  std::unique_ptr<Alice> alice;
+  std::unique_ptr<Bob> bob;
 
   auto client_register_action = ClientRegister{*aether_app};
 
@@ -60,9 +60,9 @@ int main() {
   auto on_registered =
       client_register_action.SubscribeOnResult([&](auto const& action) {
         auto [client_alice, client_bob] = action.get_clients();
-        alice = ae::MakePtr<Alice>(*aether_app, std::move(client_alice),
-                                   client_bob->uid());
-        bob = ae::MakePtr<Bob>(*aether_app, std::move(client_bob));
+        alice = ae::make_unique<Alice>(*aether_app, std::move(client_alice),
+                                       client_bob->uid());
+        bob = ae::make_unique<Bob>(*aether_app, std::move(client_bob));
       });
 
   // Subscription to Error event
@@ -103,7 +103,7 @@ Alice::Alice(ae::AetherApp& aether_app, ae::Client::ptr client_alice,
       client_alice_{std::move(client_alice)},
       p2pstream_{ae::ActionContext{*aether_->action_processor},
                  kSafeStreamConfig,
-                 ae::MakePtr<ae::P2pStream>(
+                 ae::make_unique<ae::P2pStream>(
                      ae::ActionContext{*aether_->action_processor},
                      client_alice_, bobs_uid, ae::StreamId{0})},
       interval_sender_{ae::ActionContext{*aether_->action_processor},
@@ -161,12 +161,12 @@ Bob::Bob(ae::AetherApp& aether_app, ae::Client::ptr client_bob)
               *this, ae::MethodPtr<&Bob::OnNewStream>{})} {}
 
 void Bob::OnNewStream(ae::Uid destination_uid, ae::StreamId stream_id,
-                      ae::Ptr<ae::ByteStream> message_stream) {
-  p2pstream_ = ae::MakePtr<ae::P2pSafeStream>(
+                      std::unique_ptr<ae::ByteStream> message_stream) {
+  p2pstream_ = ae::make_unique<ae::P2pSafeStream>(
       ae::ActionContext{*aether_->action_processor}, kSafeStreamConfig,
-      ae::MakePtr<ae::P2pStream>(ae::ActionContext{*aether_->action_processor},
-                                 client_bob_, destination_uid, stream_id,
-                                 std::move(message_stream)));
+      ae::make_unique<ae::P2pStream>(
+          ae::ActionContext{*aether_->action_processor}, client_bob_,
+          destination_uid, stream_id, std::move(message_stream)));
   StreamCreated(*p2pstream_);
 }
 
