@@ -16,14 +16,16 @@
 # in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.16.0)
 
+if (NOT DEFINED CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release")
+endif()
+
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 idf_build_set_property(CM_PLATFORM "ESP32")
-
-set(CMAKE_BUILD_TYPE "MinSizeRel")
 
 add_compile_definitions(CM_ESP32)
 

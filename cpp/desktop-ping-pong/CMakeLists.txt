@@ -14,6 +14,11 @@
 
 cmake_minimum_required(VERSION 3.16)
 
+# use Release build by default
+if(NOT DEFINED CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release")
+endif()
+
 project(ping-pong-example VERSION 1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
