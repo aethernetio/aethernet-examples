@@ -28,11 +28,12 @@
 #define AE_SIGNATURE AE_HYDRO_SIGNATURE
 #define AE_KDF AE_HYDRO_KDF
 
-// disable telemetry on release
+// disable debug telemetry on release
+#define AE_TELE_ENABLED 1
+#define AE_TELE_LOG_CONSOLE 1
 #if defined NDEBUG
-#  define AE_TELE_ENABLED 0
+#  define AE_TELE_DEBUG_MODULES 0
 #else
-#  define AE_TELE_ENABLED 1
-#  define AE_TELE_LOG_CONSOLE 1
+#  define AE_TELE_DEBUG_MODULES AE_ALL
 #endif
 #endif  // USER_CONFIG_H_

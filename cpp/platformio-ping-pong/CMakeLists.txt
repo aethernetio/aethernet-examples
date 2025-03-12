@@ -37,10 +37,10 @@ if (NOT FS_INIT)
   set(FS_INIT "file_system_init.h")
 endif()
 
-# enable doubles in unity tests
-add_compile_definitions("CONFIG_UNITY_ENABLE_DOUBLE")
-
-set(AE_DISTILLATION ON CACHE BOOL "" FORCE)
+# by default distillation mode is off, turn it on for this example
+if (NOT DEFINED AE_DISTILLATION)
+  set(AE_DISTILLATION On)
+endif()
 
 get_filename_component(configName "${CMAKE_BINARY_DIR}" NAME)
 
