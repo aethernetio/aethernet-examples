@@ -11,6 +11,7 @@ This repository contains examples of how to integrate the Æthernet library into
 - **Java**
 - **C++** (Linux/macOS/Windows)
 - **ESP32** (Arduino, Visual Studio Code + PlatformIO + ESP-IDF)
+- **TypeScript**
 
 ### Build Instructions
 
@@ -24,3 +25,4 @@ Client libraries are here:
 - **Java** - [github.com/aethernetio/client-java](https://github.com/aethernetio/client-java)
 - **C++** - [github.com/aethernetio/aether-client-cpp](https://github.com/aethernetio/aether-client-cpp)
 - **Arduino** - [github.com/aethernetio/aether-client-arduino-library](https://github.com/aethernetio/aether-client-arduino-library)
+- **TypeScript** - [https://github.com/aethernetio/client-ts](https://github.com/aethernetio/client-ts)
