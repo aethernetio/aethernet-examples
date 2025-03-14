@@ -18,11 +18,13 @@
 import os
 import platform
 
-from windows_script import windowsScript
+from windows_script import WindowsScript
 
 import sys
 
-repo_url = "https://github.com/aethernetio/aether-client-cpp.git"
+repo_url_main = "https://github.com/aethernetio/aether-client-cpp.git"
+repo_url_arduino = "https://github.com/aethernetio/aether-client-arduino-library.git"
+
 
 def run_library_script(script_name, ide, **kwargs):
     wifi_ssid = kwargs.get("SSID", "Unknown")
@@ -30,14 +32,14 @@ def run_library_script(script_name, ide, **kwargs):
     print("run script %s with parameters %s, %s, %s!" % (script_name, ide, wifi_ssid, wifi_pass))
     # Get info about OS
     os_info = platform.system()
-    path = os.path.dirname(os.path.realpath(__file__))
-    # Paths components
-    components = path.split(os.sep)
-    script_cwd = os.sep.join(components[:-1])
+    if(ide == "Arduino"):
+        repo_url = repo_url_arduino
+    else:
+        repo_url = repo_url_main
     if os_info == 'Windows':
         print("Script runs on Windows")
         current_directory = os.path.dirname(os.path.realpath(__file__))
-        win_script = windowsScript(current_directory, repo_url, ide, wifi_ssid, wifi_pass)
+        win_script = WindowsScript(current_directory, repo_url, ide, wifi_ssid, wifi_pass)
         win_script.run()
     elif os_info == 'Linux':
         print("Script runs on Linux")
@@ -51,7 +53,7 @@ if __name__ == "__main__":
     if len(sys.argv) < 3:
         print("Insufficient Arugments")
         print("Use format open_project.py IDE SSID=your_wifi_ssid PASS=your_wifi_pass")
-    script_name = sys.argv[0]
-    ide = sys.argv[1]
-    run_library_script(script_name, ide, **dict(arg.split('=') for arg in sys.argv[2:]))
+    main_script_name = sys.argv[0]
+    main_ide = sys.argv[1]
+    run_library_script(main_script_name, main_ide, **dict(arg.split('=') for arg in sys.argv[2:]))
     
