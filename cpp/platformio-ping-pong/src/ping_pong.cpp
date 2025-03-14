@@ -185,6 +185,8 @@ int AetherPingPongExample() {
         alice = ae::make_unique<Alice>(*aether_app, std::move(client_alice),
                                        client_bob->uid());
         bob = ae::make_unique<Bob>(*aether_app, std::move(client_bob));
+        // Save current aether state
+        aether_app->domain().SaveRoot(aether_app->aether());
       });
 
   // Subscription to Error event
@@ -224,6 +226,7 @@ void ClientRegister::AliceAndBobRegister() {
   if (aether_->clients().size() == 2) {
     alice_ = aether_->clients()[0];
     bob_ = aether_->clients()[1];
+    AE_TELED_INFO("Used already registered clients");
     state_ = State::kDone;
     return;
   }
