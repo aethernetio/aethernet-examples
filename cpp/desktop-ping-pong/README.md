@@ -18,23 +18,21 @@ We are using **CMake** for now. Though some considered it industry standard othe
 Lib `aether` requires at least *c++17*, so require it on your project and look at the nex code snippet.
 
 ```cmake
-# by default distillation mode is off, turn it on for this example
+# By default, distillation mode is off; turn it on for this example
 if (NOT DEFINED AE_DISTILLATION)
   set(AE_DISTILLATION On)
 endif()
 
 # add user provided config wich will be included as regular .h file
+# Add a user-provided config file, which will be included as a regular .h file
 set(USER_CONFIG user_config.h)
-# ${USER_CONFIG} must be an absolute path or path to something listed in include directories
+# ${USER_CONFIG} must be an absolute path or a path to something listed in include directories
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
-# add lib aether dependency
+# Add the Aether library dependency
 add_subdirectory(aether-client-cpp/aether aether)
-
-add_executable(${PROJECT_NAME})
-target_sources(${PROJECT_NAME} PRIVATE ping-pong.cpp)
-target_link_libraries(${PROJECT_NAME} PRIVATE aether)
 ```
+
 There are two modes `aether` works with: [distillation mode](https://aethernet.io/documentation#c++2) and production mode.
 By default `aether` builds in production mode, but for example only we set `AE_DISTILLATION` option to `On` in cmake script directly.
 In distillation mode `aether` configures all its inner objects in a default states and saves them to the file system.
@@ -56,16 +54,18 @@ int main() {
 
   auto client_register_action = ClientRegister{*aether_app};
 
-  // Create subscription to Result event
+  // Create a subscription to the Result event
   auto on_registered =
       client_register_action.SubscribeOnResult([&](auto const& action) {
         auto [client_alice, client_bob] = action.get_clients();
         alice = ae::make_unique<Alice>(*aether_app, std::move(client_alice),
                                        client_bob->uid());
         bob = ae::make_unique<Bob>(*aether_app, std::move(client_bob));
+        // Save the current aether state
+        aether_app->domain().SaveRoot(aether_app->aether());
       });
 
-  // Subscription to Error event
+  // Subscription to the Error event
   auto on_register_failed = client_register_action.SubscribeOnError(
       [&](auto const&) { aether_app->Exit(1); });
 
@@ -90,8 +90,13 @@ Each action is inherited from `ae::Action<T>` and registered in [ActionProcessor
 It has an `Update` method invoked every loop, where we can manage a state machine or check status of multithreaded tasks.
 To inform about it's state three [events](https://aethernet.io/documentation#c++2) exists: `Result`, `Error`, `Stop` - names speaks for itself.
 
-We subscribe to `Result` event and obtain clients for *Alice* and *Bob* from action to init our characters.
+We subscribe to `Result` event and obtain clients for *Alice* and *Bob* from action to init our characters and also save current `aether` state.
 On `Error` we close application with exit code 1 as soon as possible.
+
+For this example clients for `Alice` and `Bob` registered every time application runs in distillation mode.
+But in production mode clients from the saved state used.
+Reconfigure cmake with `AE_DISTILLATION=Off` (just make in your build dir `cmake -DAE_DISTILLATION=Off .`) and rebuild it.
+Next run will be a little faster without registration.
 
 [Event subscription](https://aethernet.io/documentation#c++2) is a RAII object holds subscription to events and unsubscribes on destruction.
 
