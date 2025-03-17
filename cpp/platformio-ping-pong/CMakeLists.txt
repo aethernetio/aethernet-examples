@@ -29,18 +29,20 @@ idf_build_set_property(CM_PLATFORM "ESP32")
 
 add_compile_definitions(CM_ESP32)
 
-if (NOT USER_CONFIG)
-  set(USER_CONFIG "user_config.h")
-endif()
-
 if (NOT FS_INIT)
   set(FS_INIT "file_system_init.h")
 endif()
 
-# by default distillation mode is off, turn it on for this example
+# By default, distillation mode is off; turn it on for this example
 if (NOT DEFINED AE_DISTILLATION)
   set(AE_DISTILLATION On)
 endif()
+
+# add user provided config wich will be included as regular .h file
+# Add a user-provided config file, which will be included as a regular .h file
+set(USER_CONFIG user_config.h)
+# ${USER_CONFIG} must be an absolute path or a path to something listed in include directories
+include_directories(${CMAKE_CURRENT_LIST_DIR}/src)
 
 get_filename_component(configName "${CMAKE_BINARY_DIR}" NAME)
 
