@@ -1,3 +1,19 @@
+@echo off
+REM Copyright 2025 Aethernet Inc.
+REM
+REM Licensed under the Apache License, Version 2.0 (the "License");
+REM you may not use this file except in compliance with the License.
+REM You may obtain a copy of the License at
+REM
+REM     http://www.apache.org/licenses/LICENSE-2.0
+REM
+REM Unless required by applicable law or agreed to in writing, software
+REM distributed under the License is distributed on an "AS IS" BASIS,
+REM WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+REM See the License for the specific language governing permissions and
+REM limitations under the License.
+@echo on
+
 git submodule update --init --remote aether-client-cpp
 cd aether-client-cpp
 call git_init.bat
@@ -5,6 +21,11 @@ cd ..
 mkdir build-example
 cd build-example
 cmake ..
-cmake --build .
-cd Debug
+cmake --build . --config Release
+cd Release
+
+echo "Get a reference ping to the Aethernet infrastructure"
+ping cloud.aethernet.io
+
+echo "Run example"
 ping-pong-example.exe
