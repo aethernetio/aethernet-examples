@@ -56,7 +56,7 @@ class WindowsScript:
         self.wifi_pass = wifi_pass
 
         self.clone_directory = os.path.join(current_directory,"Aether")
-        self.source_directory = os.path.join(current_directory,"Aether","projects","Cmake")
+        self.source_directory = os.path.join(current_directory,"Aether","projects","cmake")
         self.project_folder = os.path.join(current_directory,"Aether","projects","espressif_riscv","vscode","aether-client-cpp")
         self.build_directory = "./build"
         self.release_directory = "./build/Release"
@@ -76,7 +76,7 @@ class WindowsScript:
         self.open_ide()
 
     def clone_repository(self):
-        print(self.clone_directory)
+        print(f"Directory for clone is {self.clone_directory}")
         # Execute git clone
         try:
             subprocess.run(["git", "clone", self.repo_url, self.clone_directory], check=True)
