@@ -119,18 +119,18 @@ int main() {
 
   auto client_register_action = ClientRegister{*aether_app};
 
-  // Create subscription to Result event
+  // Create a subscription to the Result event
   auto on_registered =
       client_register_action.SubscribeOnResult([&](auto const& action) {
         auto [client_alice, client_bob] = action.get_clients();
         alice = ae::make_unique<Alice>(*aether_app, std::move(client_alice),
                                        client_bob->uid());
         bob = ae::make_unique<Bob>(*aether_app, std::move(client_bob));
-        // Save current aether state
+        // Save the current aether state
         aether_app->domain().SaveRoot(aether_app->aether());
       });
 
-  // Subscription to Error event
+  // Subscription to the Error event
   auto on_register_failed = client_register_action.SubscribeOnError(
       [&](auto const&) { aether_app->Exit(1); });
 

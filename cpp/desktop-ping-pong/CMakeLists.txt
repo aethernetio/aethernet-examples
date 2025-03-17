@@ -24,17 +24,18 @@ project(ping-pong-example VERSION 1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# by default distillation mode is off, turn it on for this example
+# By default, distillation mode is off; turn it on for this example
 if (NOT DEFINED AE_DISTILLATION)
   set(AE_DISTILLATION On)
 endif()
 
 # add user provided config wich will be included as regular .h file
+# Add a user-provided config file, which will be included as a regular .h file
 set(USER_CONFIG user_config.h)
-# ${USER_CONFIG} must be an absolute path or path to something listed in include directories
+# ${USER_CONFIG} must be an absolute path or a path to something listed in include directories
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
-# add lib aether dependency
+# Add the Aether library dependency
 add_subdirectory(aether-client-cpp/aether aether)
 
 add_executable(${PROJECT_NAME})
