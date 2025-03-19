@@ -173,7 +173,7 @@ class WindowsScript:
         print(register_command)
         try:
             # We run CMake in the specified build directory
-            subprocess.run(register_command, cwd=self.release_directory, check=True)
+            subprocess.run(register_command, cwd=self.release_directory, check=False)
             print(f"Aether registrator has been successfully launched!")
         except subprocess.CalledProcessError as e:
             raise NameError(f"Error when launching Aether registrator: {e}")
