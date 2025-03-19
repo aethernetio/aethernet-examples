@@ -48,16 +48,22 @@ def modify_ini_file(file_path, section, parameter, new_value):
 
 
 class WindowsScript:
-    def __init__(self, current_directory, repo_url, ide, wifi_ssid, wifi_pass):
+    def __init__(self, current_directory, repo_url, ide, architecture, wifi_ssid, wifi_pass):
         self.current_directory = current_directory
         self.repo_url = repo_url
         self.ide = ide
         self.wifi_ssid = wifi_ssid
         self.wifi_pass = wifi_pass
 
+        arch_dir = "cmake"
+        if architecture=="Risc-V":
+            arch_dir = "espressif_riscv"
+        elif architecture=="Lx6":
+            arch_dir = "xtensa_lx6"
+
         self.clone_directory = os.path.join(current_directory,"Aether")
         self.source_directory = os.path.join(current_directory,"Aether","projects","cmake")
-        self.project_folder = os.path.join(current_directory,"Aether","projects","espressif_riscv","vscode","aether-client-cpp")
+        self.project_folder = os.path.join(current_directory,"Aether","projects",arch_dir,"vscode","aether-client-cpp")
         self.build_directory = "./build"
         self.release_directory = "./build/Release"
         self.registrator_path = "./build/Release/aether-registrator.exe"
@@ -163,6 +169,7 @@ class WindowsScript:
         register_command = [self.registrator_path,
                             self.ini_file_path,
                             "config/file_system_init.h"]
+
         print(register_command)
         try:
             # We run CMake in the specified build directory
