@@ -47,19 +47,25 @@ def modify_ini_file(file_path, section, parameter, new_value):
         raise NameError(f"Section '[{section}]' or parameter '{parameter}' not found in the file.")
 
 class LinuxScript:
-    def __init__(self, current_directory, repo_url, ide, wifi_ssid, wifi_pass):
+    def __init__(self, current_directory, repo_url, ide, architecture, wifi_ssid, wifi_pass):
         self.current_directory = current_directory
         self.repo_url = repo_url
         self.ide = ide
         self.wifi_ssid = wifi_ssid
         self.wifi_pass = wifi_pass
 
+        arch_dir = "cmake"
+        if architecture=="Risc-V":
+            arch_dir = "espressif_riscv"
+        elif architecture=="Lx6":
+            arch_dir = "xtensa_lx6"
+
         self.clone_directory = os.path.join(current_directory,"Aether")
         self.source_directory = os.path.join(current_directory,"Aether","projects","cmake")
-        self.project_folder = os.path.join(current_directory,"Aether","projects","espressif_riscv","vscode","aether-client-cpp")
-        self.build_directory = "./build"
-        self.release_directory = "./build/Release"
-        self.registrator_path = "./build/Release/aether-registrator.exe"
+        self.project_folder = os.path.join(current_directory,"Aether","projects",arch_dir,"vscode","aether-client-cpp")
+        self.build_directory = os.path.join(current_directory,"build")
+        self.release_directory = os.path.join(current_directory,"build")
+        self.registrator_path = os.path.join(current_directory,"build","aether-registrator")
         self.ini_file_path = os.path.join(current_directory,"Aether","examples","registered","config","registered_config.ini")
 
     def run(self):
@@ -68,10 +74,10 @@ class LinuxScript:
             self.apply_patches()
         self.cmake_registrator()
         self.compile_registrator()
-        #self.modifi_settings()
-        #self.register_clients()
-        #self.copy_header_file()
-        #self.open_ide()
+        self.modifi_settings()
+        self.register_clients()
+        self.copy_header_file()
+        self.open_ide()
 
     def clone_repository(self):
         print(f"Directory for clone is {self.clone_directory}")
@@ -123,11 +129,11 @@ class LinuxScript:
         print("Building project...")
 
         # Go to the build directory
-        os.chdir(self.current_directory+"/build")
+        #os.chdir(self.current_directory+"/build")
 
         # The command to build a project using Linux make
         linux_command = [
-            "make"
+            "ninja"
         ]
 
         try:
@@ -137,3 +143,67 @@ class LinuxScript:
             print(f"The build has been completed successfully!")
         except subprocess.CalledProcessError as e:
             raise NameError(f"Error when building the project: {e}")
+
+    def modifi_settings(self):
+        section = "Aether"
+        try:
+            parameter = "wifiSsid"
+            new_value = self.wifi_ssid
+            modify_ini_file(self.ini_file_path, section, parameter, new_value)
+        except ValueError as e:
+            raise NameError(f"Error in the settings modification:", e)
+
+        try:
+            parameter = "wifiPass"
+            new_value = self.wifi_pass
+            modify_ini_file(self.ini_file_path, section, parameter, new_value)
+        except ValueError as e:
+            raise NameError(f"Error in the settings modification:", e)
+
+    def register_clients(self):
+        # The command to run CMake
+        register_command = [self.registrator_path,
+                            self.ini_file_path,
+                            os.path.join(self.release_directory,"config","file_system_init.h")
+        ]
+
+        print(register_command)
+        try:
+            # We run CMake in the specified build directory
+            subprocess.run(register_command, cwd=self.release_directory, check=False)
+            print(f"Aether registrator has been successfully launched!")
+        except subprocess.CalledProcessError as e:
+            raise NameError(f"Error when launching Aether registrator: {e}")
+
+    def copy_header_file(self):
+        try:
+            shutil.copy(os.path.join(self.release_directory,"config","file_system_init.h"),
+                        os.path.join(self.clone_directory,"config","file_system_init.h"))
+        except PermissionError:
+            raise NameError(f"Permission denied!")
+        except OSError as e:
+            raise NameError(f"Error occurred: {e}")
+
+    def open_ide(self):
+        if self.ide == "VSCode":
+            # Checking if the specified folder exists
+            if not os.path.isdir(self.project_folder):
+                print(f"Folder '{self.project_folder}' does not exist.")
+                return
+
+            # The command to run VS Code and open the folder
+            # The 'code' command should be available in the PATH
+            vscode_path = "code"
+            command = [vscode_path,
+                       "--no-sandbox",
+                       self.project_folder
+            ]
+
+            try:
+                # Launching VS Code
+                subprocess.run(command, check=True)
+                print(f"VS Code is running and opened the folder: {self.project_folder}")
+            except FileNotFoundError:
+                raise NameError("VS Code was not found. Make sure that the 'Code.exe' is available in the PATH.")
+            except subprocess.CalledProcessError as e:
+                raise NameError(f"Error when starting VS Code: {e}")

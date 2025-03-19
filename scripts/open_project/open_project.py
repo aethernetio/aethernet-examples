@@ -27,10 +27,10 @@ repo_url_main = "https://github.com/aethernetio/aether-client-cpp.git"
 repo_url_arduino = "https://github.com/aethernetio/aether-client-arduino-library.git"
 
 
-def run_library_script(script_name, ide, **kwargs):
+def run_library_script(script_name, ide, architecture, **kwargs):
     wifi_ssid = kwargs.get("SSID", "Unknown")
     wifi_pass = kwargs.get("PASS", "Unknown")
-    print("run script %s with parameters: [%s], [%s], [%s]!" % (script_name, ide, wifi_ssid, wifi_pass))
+    print("run script %s with parameters: [%s], [%s], [%s], [%s]!" % (script_name, ide, architecture, wifi_ssid, wifi_pass))
     # Get info about OS
     os_info = platform.system()
     if(ide == "Arduino"):
@@ -40,12 +40,12 @@ def run_library_script(script_name, ide, **kwargs):
     if os_info == 'Windows':
         print("Script runs on Windows")
         current_directory = os.path.dirname(os.path.realpath(__file__))
-        win_script = WindowsScript(current_directory, repo_url, ide, wifi_ssid, wifi_pass)
+        win_script = WindowsScript(current_directory, repo_url, ide, architecture, wifi_ssid, wifi_pass)
         win_script.run()
     elif os_info == 'Linux':
         print("Script runs on Linux")
         current_directory = os.path.dirname(os.path.realpath(__file__))
-        lin_script = LinuxScript(current_directory, repo_url, ide, wifi_ssid, wifi_pass)
+        lin_script = LinuxScript(current_directory, repo_url, ide, architecture, wifi_ssid, wifi_pass)
         lin_script.run()
     elif os_info == 'Darwin':
         print("Script runs on macOS")
@@ -56,8 +56,9 @@ def run_library_script(script_name, ide, **kwargs):
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         print("Insufficient Arugments")
-        print("Use format open_project.py IDE SSID=your_wifi_ssid PASS=your_wifi_pass")
+        print("Use format open_project.py IDE ARCHITECTURE SSID=your_wifi_ssid PASS=your_wifi_pass")
     main_script_name = sys.argv[0]
     main_ide = sys.argv[1]
-    run_library_script(main_script_name, main_ide, **dict(arg.split('=') for arg in sys.argv[2:]))
+    main_architecture = sys.argv[2]
+    run_library_script(main_script_name, main_ide, main_architecture, **dict(arg.split('=') for arg in sys.argv[3:]))
     
