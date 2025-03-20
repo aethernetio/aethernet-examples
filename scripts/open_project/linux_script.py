@@ -18,38 +18,14 @@
 import os
 import subprocess
 import shutil
-import configparser
 
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from _typeshed import SupportsRead, SupportsWrite
+from ini_file_functions import modify_ini_file
 
-
-def modify_ini_file(file_path, section, parameter, new_value):
-    # Creating an object ConfigParser
-    config = configparser.ConfigParser()
-    config.optionxform = str
-
-    # Reading a file
-    config.read(file_path)
-
-    # Check if there is a section and a parameter.
-    if section in config and parameter in config[section]:
-        # Changing the parameter value
-        config[section][parameter] = new_value
-
-        # Writing the changes back to the file
-        with open(file_path, 'w') as configfile: # type: SupportsWrite[str]
-            config.write(configfile)
-        print(f"Parameter '{parameter}' in the section '[{section}]' changed to '{new_value}'.")
-    else:
-        #print(f"Section '[{section}]' or parameter '{parameter}' not found in the file.")
-        raise NameError(f"Section '[{section}]' or parameter '{parameter}' not found in the file.")
 
 class LinuxScript:
-    def __init__(self, current_directory, repo_url, ide, architecture, wifi_ssid, wifi_pass):
+    def __init__(self, current_directory, repo_urls, ide, architecture, wifi_ssid, wifi_pass):
         self.current_directory = current_directory
-        self.repo_url = repo_url
+        self.repo_urls = repo_urls
         self.ide = ide
         self.wifi_ssid = wifi_ssid
         self.wifi_pass = wifi_pass
@@ -60,16 +36,25 @@ class LinuxScript:
         elif architecture=="Lx6":
             arch_dir = "xtensa_lx6"
 
-        self.clone_directory = os.path.join(current_directory,"Aether")
+        ide_dir = "vscode"
+        if ide == "Platformio":
+            ide_dir = "platformio"
+
+        self.clone_directory_aether = os.path.join(current_directory,"Aether")
+        self.clone_directory_arduino = os.path.join(current_directory,"Arduino")
         self.source_directory = os.path.join(current_directory,"Aether","projects","cmake")
-        self.project_folder = os.path.join(current_directory,"Aether","projects",arch_dir,"vscode","aether-client-cpp")
+        self.project_directory_aether = os.path.join(current_directory,"Aether","projects",arch_dir,ide_dir,"aether-client-cpp")
+        self.project_directory_arduino = os.path.join(current_directory,"Arduino","Examples","Registered")
+        # Build
         self.build_directory = os.path.join(current_directory,"build")
         self.release_directory = os.path.join(current_directory,"build")
-        self.registrator_path = os.path.join(current_directory,"build","aether-registrator")
-        self.ini_file_path = os.path.join(current_directory,"Aether","examples","registered","config","registered_config.ini")
+        self.registrator_executable = os.path.join(current_directory,"build","aether-registrator")
+        # Files
+        self.ini_file = os.path.join(current_directory,"Aether","examples","registered","config","registered_config.ini")
+        self.ini_file_out = os.path.join("config","file_system_init.h")
 
     def run(self):
-        if not os.path.exists(self.clone_directory):
+        if not os.path.exists(self.clone_directory_aether):
             self.clone_repository()
             self.apply_patches()
         self.cmake_registrator()
@@ -77,25 +62,36 @@ class LinuxScript:
         self.modifi_settings()
         self.register_clients()
         self.copy_header_file()
+        self.install_arduino_library()
         self.open_ide()
 
     def clone_repository(self):
-        print(f"Directory for clone is {self.clone_directory}")
-        # Execute git clone
-        try:
-            subprocess.run(["git", "clone", self.repo_url, self.clone_directory], check=True)
-            print(f"The repository has been successfully cloned in {self.clone_directory}")
-        except subprocess.CalledProcessError as e:
-            raise NameError(f"Error when cloning the repository: {e}")
+        if not os.path.exists(self.clone_directory_aether):
+            print(f"Directory for clone Aether is {self.clone_directory_aether}")
+            # Execute git clone
+            try:
+                subprocess.run(["git", "clone", self.repo_urls["Aether"], self.clone_directory_aether], check=True)
+                print(f"The repository has been successfully cloned in {self.clone_directory_aether}")
+            except subprocess.CalledProcessError as e:
+                raise NameError(f"Error when cloning the repository: {e}")
+
+        if self.ide == "Arduino" and not os.path.exists(self.clone_directory_arduino):
+            print(f"Directory for clone Aether is {self.clone_directory_arduino}")
+            # Execute git clone
+            try:
+                subprocess.run(["git", "clone", self.repo_urls["Arduino"], self.clone_directory_arduino], check=True)
+                print(f"The repository has been successfully cloned in {self.clone_directory_arduino}")
+            except subprocess.CalledProcessError as e:
+                raise NameError(f"Error when cloning the repository: {e}")
 
     def apply_patches(self):
-        script_path = os.path.join(self.clone_directory, "git_init.sh")
+        script_path = os.path.join(self.clone_directory_aether, "git_init.sh")
 
         # The command to run git_init.ps1
         git_init_command = ["sh",
                             script_path]
         try:
-            subprocess.run(git_init_command, cwd=self.clone_directory, check=True)
+            subprocess.run(git_init_command, cwd=self.clone_directory_aether, check=True)
             print(f"Script git_init.sh has been successfully launched!")
         except subprocess.CalledProcessError as e:
             raise NameError(f"Error when launching Script git_init.sh: {e}")
@@ -115,7 +111,7 @@ class LinuxScript:
                          "-DUSER_CONFIG=../config/user_config_hydrogen.h",
                          "-DFS_INIT=../../../../config/file_system_init.h",
                          "-DAE_DISTILLATION=On",
-                         "-DCMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES=\""+self.clone_directory+"\"",
+                         "-DCMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES=\""+self.clone_directory_aether+"\"",
                          self.source_directory]
 
         try:
@@ -149,23 +145,22 @@ class LinuxScript:
         try:
             parameter = "wifiSsid"
             new_value = self.wifi_ssid
-            modify_ini_file(self.ini_file_path, section, parameter, new_value)
+            modify_ini_file(self.ini_file, section, parameter, new_value)
         except ValueError as e:
             raise NameError(f"Error in the settings modification:", e)
 
         try:
             parameter = "wifiPass"
             new_value = self.wifi_pass
-            modify_ini_file(self.ini_file_path, section, parameter, new_value)
+            modify_ini_file(self.ini_file, section, parameter, new_value)
         except ValueError as e:
             raise NameError(f"Error in the settings modification:", e)
 
     def register_clients(self):
         # The command to run CMake
-        register_command = [self.registrator_path,
-                            self.ini_file_path,
-                            os.path.join(self.release_directory,"config","file_system_init.h")
-        ]
+        register_command = [self.registrator_executable,
+                            self.ini_file,
+                            self.ini_file_out]
 
         print(register_command)
         try:
@@ -176,19 +171,30 @@ class LinuxScript:
             raise NameError(f"Error when launching Aether registrator: {e}")
 
     def copy_header_file(self):
+        source_ini_file = self.release_directory + "/config/file_system_init.h"
+        destination_ini_file = self.clone_directory_aether + "/config/file_system_init.h"
+        if self.ide == "Arduino":
+            destination_ini_file = self.clone_directory_aether + "/src/config/file_system_init.h"
+
         try:
-            shutil.copy(os.path.join(self.release_directory,"config","file_system_init.h"),
-                        os.path.join(self.clone_directory,"config","file_system_init.h"))
+            shutil.copy(source_ini_file, destination_ini_file)
         except PermissionError:
             raise NameError(f"Permission denied!")
         except OSError as e:
             raise NameError(f"Error occurred: {e}")
 
+    ## Documentation for a function.
+    #
+    #  More details.
+    def install_arduino_library(self):
+        if self.ide == "Arduino":
+            print(f"Installing Arduino Library")
+
     def open_ide(self):
         if self.ide == "VSCode":
             # Checking if the specified folder exists
-            if not os.path.isdir(self.project_folder):
-                print(f"Folder '{self.project_folder}' does not exist.")
+            if not os.path.isdir(self.project_directory_aether):
+                print(f"Folder '{self.project_directory_aether}' does not exist.")
                 return
 
             # The command to run VS Code and open the folder
@@ -196,13 +202,13 @@ class LinuxScript:
             vscode_path = "code"
             command = [vscode_path,
                        "--no-sandbox",
-                       self.project_folder
+                       self.project_directory_aether
             ]
 
             try:
                 # Launching VS Code
                 subprocess.run(command, check=True)
-                print(f"VS Code is running and opened the folder: {self.project_folder}")
+                print(f"VS Code is running and opened the folder: {self.project_directory_aether}")
             except FileNotFoundError:
                 raise NameError("VS Code was not found. Make sure that the 'Code.exe' is available in the PATH.")
             except subprocess.CalledProcessError as e:
