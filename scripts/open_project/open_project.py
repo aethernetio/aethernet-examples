@@ -20,6 +20,7 @@ import platform
 
 from windows_script import WindowsScript
 from linux_script import LinuxScript
+from macos_script import MacosScript
 
 import sys
 
@@ -34,19 +35,20 @@ def run_library_script(script_name, ide, architecture, **kwargs):
 
     # Get info about OS
     os_info = platform.system()
+    current_directory = os.path.dirname(os.path.realpath(__file__))
 
     if os_info == 'Windows':
         print("Script runs on Windows")
-        current_directory = os.path.dirname(os.path.realpath(__file__))
         win_script = WindowsScript(current_directory, repo_urls, ide, architecture, wifi_ssid, wifi_pass)
         win_script.run()
     elif os_info == 'Linux':
         print("Script runs on Linux")
-        current_directory = os.path.dirname(os.path.realpath(__file__))
         lin_script = LinuxScript(current_directory, repo_urls, ide, architecture, wifi_ssid, wifi_pass)
         lin_script.run()
     elif os_info == 'Darwin':
         print("Script runs on macOS")
+        mac_script = MacosScript(current_directory, repo_urls, ide, architecture, wifi_ssid, wifi_pass)
+        mac_script.run()
     else:
         print(f"Unknown OS: {os_info}")
 
