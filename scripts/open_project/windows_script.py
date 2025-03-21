@@ -24,6 +24,7 @@ import os
 import subprocess
 import shutil
 
+from pathlib import PureWindowsPath
 from ini_file_functions import modify_ini_file
 
 ## Documentation for a function.
@@ -47,16 +48,20 @@ class WindowsScript:
         if ide == "Platformio":
             ide_dir = "platformio"
 
+        # Library name
+        self.library_name = "Aether"
+        # Directories
         self.clone_directory_aether = os.path.join(current_directory,"Aether")
         self.clone_directory_arduino = os.path.join(current_directory,"Arduino")
         self.source_directory = os.path.join(current_directory,"Aether","projects","cmake")
         self.project_directory_aether = os.path.join(current_directory,"Aether","projects",arch_dir,ide_dir,"aether-client-cpp")
         self.project_directory_arduino = os.path.join(current_directory,"Arduino","Examples","Registered")
+        self.libraries_directory_arduino = os.path.expanduser("~/Documents/Arduino/libraries")
         # Build
         self.build_directory = "./build"
         self.release_directory = "./build/Release"
         self.registrator_executable = "./build/Release/aether-registrator.exe"
-        #Files
+        # Files
         self.ini_file = os.path.join(current_directory,"Aether","examples","registered","config","registered_config.ini")
         self.ini_file_out = os.path.join("config","file_system_init.h")
 
@@ -64,12 +69,12 @@ class WindowsScript:
     #
     #  More details.
     def run(self):
-        self.clone_repository()
-        self.apply_patches()
-        self.cmake_registrator()
-        self.compile_registrator()
-        self.modify_settings()
-        self.register_clients()
+        #self.clone_repository()
+        #self.apply_patches()
+        #self.cmake_registrator()
+        #self.compile_registrator()
+        #self.modify_settings()
+        #self.register_clients()
         self.copy_header_file()
         self.install_arduino_library()
         self.open_ide()
@@ -186,10 +191,14 @@ class WindowsScript:
     #
     #  More details.
     def register_clients(self):
+        source_ini_file = os.path.normpath(self.ini_file_out)
+        if os.path.sep == '\\':
+            source_ini_file = PureWindowsPath(source_ini_file).as_posix()
+        print(source_ini_file)
         # The command to run CMake
         register_command = [self.registrator_executable,
                             self.ini_file,
-                            self.ini_file_out]
+                            source_ini_file]
 
         print(register_command)
         try:
@@ -204,9 +213,15 @@ class WindowsScript:
     #  More details.
     def copy_header_file(self):
         source_ini_file = os.path.join(self.release_directory, self.ini_file_out)
+        source_ini_file = os.path.normpath(source_ini_file)
+        if os.path.sep == '\\':
+            source_ini_file = PureWindowsPath(source_ini_file).as_posix()
+        print(source_ini_file)
         destination_ini_file = os.path.join(self.clone_directory_aether, self.ini_file_out)
+
         if self.ide == "Arduino":
-            destination_ini_file = os.path.join(self.clone_directory_aether, "src", self.ini_file_out)
+            destination_ini_file = os.path.join(self.clone_directory_arduino, "src", self.ini_file_out)
+        print(destination_ini_file)
 
         try:
             shutil.copy(source_ini_file, destination_ini_file)
@@ -221,12 +236,24 @@ class WindowsScript:
     def install_arduino_library(self):
         if self.ide == "Arduino":
             print(f"Installing Arduino Library")
+            # The path to the folder where the library will be unpacked
+            library_source_directory = self.clone_directory_arduino
+            library_destination_directory = os.path.join(self.libraries_directory_arduino, self.library_name)
+
+            try:
+                # Copy the src folder to the dst folder
+                shutil.copytree(library_source_directory, library_destination_directory)
+                print(f"Folder {library_source_directory} successfully copied to {library_destination_directory}")
+            except FileExistsError:
+                print(f"Folder {library_destination_directory} is already exists. Delete it or choose a different name.")
+            except Exception as e:
+                print(f"Error occurred: {e}")
 
     ## Documentation for a function.
     #
     #  More details.
     def open_ide(self):
-        if self.ide == "VSCode":
+        if self.ide == "VSCode" or self.ide == "Platformio":
             # Checking if the specified folder exists
             if not os.path.isdir(self.project_directory_aether):
                 print(f"Folder '{self.project_directory_aether}' does not exist.")

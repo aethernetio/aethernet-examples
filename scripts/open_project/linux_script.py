@@ -22,6 +22,9 @@ import shutil
 from ini_file_functions import modify_ini_file
 
 
+## Documentation for a function.
+#
+#  More details.
 class LinuxScript:
     def __init__(self, current_directory, repo_urls, ide, architecture, wifi_ssid, wifi_pass):
         self.current_directory = current_directory
@@ -40,11 +43,15 @@ class LinuxScript:
         if ide == "Platformio":
             ide_dir = "platformio"
 
+        # Library name
+        self.library_name = "Aether"
+        # Directories
         self.clone_directory_aether = os.path.join(current_directory,"Aether")
         self.clone_directory_arduino = os.path.join(current_directory,"Arduino")
         self.source_directory = os.path.join(current_directory,"Aether","projects","cmake")
         self.project_directory_aether = os.path.join(current_directory,"Aether","projects",arch_dir,ide_dir,"aether-client-cpp")
         self.project_directory_arduino = os.path.join(current_directory,"Arduino","Examples","Registered")
+        self.libraries_directory_arduino = os.path.expanduser("~/Arduino/libraries")
         # Build
         self.build_directory = os.path.join(current_directory,"build")
         self.release_directory = os.path.join(current_directory,"build")
@@ -53,10 +60,12 @@ class LinuxScript:
         self.ini_file = os.path.join(current_directory,"Aether","examples","registered","config","registered_config.ini")
         self.ini_file_out = os.path.join("config","file_system_init.h")
 
+    ## Documentation for a function.
+    #
+    #  More details.
     def run(self):
-        if not os.path.exists(self.clone_directory_aether):
-            self.clone_repository()
-            self.apply_patches()
+        self.clone_repository()
+        self.apply_patches()
         self.cmake_registrator()
         self.compile_registrator()
         self.modifi_settings()
@@ -65,6 +74,9 @@ class LinuxScript:
         self.install_arduino_library()
         self.open_ide()
 
+    ## Documentation for a function.
+    #
+    #  More details.
     def clone_repository(self):
         if not os.path.exists(self.clone_directory_aether):
             print(f"Directory for clone Aether is {self.clone_directory_aether}")
@@ -75,7 +87,7 @@ class LinuxScript:
             except subprocess.CalledProcessError as e:
                 raise NameError(f"Error when cloning the repository: {e}")
 
-        if self.ide == "Arduino" and not os.path.exists(self.clone_directory_arduino):
+        if self.ide=="Arduino" and not os.path.exists(self.clone_directory_arduino):
             print(f"Directory for clone Aether is {self.clone_directory_arduino}")
             # Execute git clone
             try:
@@ -84,6 +96,9 @@ class LinuxScript:
             except subprocess.CalledProcessError as e:
                 raise NameError(f"Error when cloning the repository: {e}")
 
+    ## Documentation for a function.
+    #
+    #  More details.
     def apply_patches(self):
         script_path = os.path.join(self.clone_directory_aether, "git_init.sh")
 
@@ -96,6 +111,9 @@ class LinuxScript:
         except subprocess.CalledProcessError as e:
             raise NameError(f"Error when launching Script git_init.sh: {e}")
 
+    ## Documentation for a function.
+    #
+    #  More details.
     def cmake_registrator(self):
         print("Setting up CMake...")
         if os.path.exists(self.build_directory):
@@ -121,12 +139,11 @@ class LinuxScript:
         except subprocess.CalledProcessError as e:
             raise NameError(f"Error when launching CMake: {e}")
 
+    ## Documentation for a function.
+    #
+    #  More details.
     def compile_registrator(self):
         print("Building project...")
-
-        # Go to the build directory
-        #os.chdir(self.current_directory+"/build")
-
         # The command to build a project using Linux make
         linux_command = [
             "ninja"
@@ -134,12 +151,15 @@ class LinuxScript:
 
         try:
             # We specify the configuration (Release or Debug)
-            subprocess.run(linux_command, cwd=self.current_directory+"/build", check=True)
+            subprocess.run(linux_command, cwd=self.build_directory, check=True)
 
             print(f"The build has been completed successfully!")
         except subprocess.CalledProcessError as e:
             raise NameError(f"Error when building the project: {e}")
 
+    ## Documentation for a function.
+    #
+    #  More details.
     def modifi_settings(self):
         section = "Aether"
         try:
@@ -156,6 +176,9 @@ class LinuxScript:
         except ValueError as e:
             raise NameError(f"Error in the settings modification:", e)
 
+    ## Documentation for a function.
+    #
+    #  More details.
     def register_clients(self):
         # The command to run CMake
         register_command = [self.registrator_executable,
@@ -170,11 +193,14 @@ class LinuxScript:
         except subprocess.CalledProcessError as e:
             raise NameError(f"Error when launching Aether registrator: {e}")
 
+    ## Documentation for a function.
+    #
+    #  More details.
     def copy_header_file(self):
-        source_ini_file = self.release_directory + "/config/file_system_init.h"
-        destination_ini_file = self.clone_directory_aether + "/config/file_system_init.h"
+        source_ini_file = os.path.join(self.release_directory, self.ini_file_out)
+        destination_ini_file = os.path.join(self.clone_directory_aether, self.ini_file_out)
         if self.ide == "Arduino":
-            destination_ini_file = self.clone_directory_aether + "/src/config/file_system_init.h"
+            destination_ini_file = os.path.join(self.clone_directory_arduino, "src", self.ini_file_out)
 
         try:
             shutil.copy(source_ini_file, destination_ini_file)
@@ -189,9 +215,24 @@ class LinuxScript:
     def install_arduino_library(self):
         if self.ide == "Arduino":
             print(f"Installing Arduino Library")
+            # The path to the folder where the library will be unpacked
+            library_source_directory = self.clone_directory_arduino
+            library_destination_directory = os.path.join(self.libraries_directory_arduino, self.library_name)
 
+            try:
+                # Copy the src folder to the dst folder
+                shutil.copytree(library_source_directory, library_destination_directory)
+                print(f"Folder {library_source_directory} successfully copied to {library_destination_directory}")
+            except FileExistsError:
+                print(f"Folder {library_destination_directory} is already exists. Delete it or choose a different name.")
+            except Exception as e:
+                print(f"Error occurred: {e}")
+
+    ## Documentation for a function.
+    #
+    #  More details.
     def open_ide(self):
-        if self.ide == "VSCode":
+        if self.ide == "VSCode" or self.ide == "Platformio":
             # Checking if the specified folder exists
             if not os.path.isdir(self.project_directory_aether):
                 print(f"Folder '{self.project_directory_aether}' does not exist.")
@@ -213,3 +254,22 @@ class LinuxScript:
                 raise NameError("VS Code was not found. Make sure that the 'Code.exe' is available in the PATH.")
             except subprocess.CalledProcessError as e:
                 raise NameError(f"Error when starting VS Code: {e}")
+        elif self.ide == "Arduino":
+            # Checking if the specified folder exists
+            if not os.path.isdir(self.project_directory_arduino):
+                print(f"Folder '{self.project_directory_arduino}' does not exist.")
+                return
+
+            # The command to run Arduino and open the folder
+            # The 'code' command should be available in the PATH
+            arduino_path = "Arduino"
+            command = [arduino_path, self.project_directory_arduino]
+            print(command)
+            try:
+                # Launching Arduino
+                subprocess.run(command, check=True)
+                print(f"Arduino is running and opened the folder: {self.project_directory_arduino}")
+            except FileNotFoundError:
+                raise NameError("Arduino was not found. Make sure that the 'Arduino IDE.exe' is available in the PATH.")
+            except subprocess.CalledProcessError as e:
+                raise NameError(f"Error when starting Arduino: {e}")
