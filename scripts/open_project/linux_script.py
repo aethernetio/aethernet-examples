@@ -270,6 +270,6 @@ class LinuxScript:
                 subprocess.run(command, check=True)
                 print(f"Arduino is running and opened the folder: {self.project_directory_arduino}")
             except FileNotFoundError:
-                raise NameError("Arduino was not found. Make sure that the 'Arduino IDE.exe' is available in the PATH.")
+                raise NameError(f"Arduino was not found. Make sure that the 'Arduino IDE.exe' is available in the PATH.")
             except subprocess.CalledProcessError as e:
                 raise NameError(f"Error when starting Arduino: {e}")

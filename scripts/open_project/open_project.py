@@ -17,6 +17,7 @@
 
 import os
 import platform
+import argparse
 
 from windows_script import WindowsScript
 from linux_script import LinuxScript
@@ -28,9 +29,7 @@ repo_urls = {"Aether":"https://github.com/aethernetio/aether-client-cpp.git",
              "Arduino":"https://github.com/aethernetio/aether-client-arduino-library.git"}
 
 
-def run_library_script(script_name, ide, architecture, **kwargs):
-    wifi_ssid = kwargs.get("SSID", "Unknown")
-    wifi_pass = kwargs.get("PASS", "Unknown")
+def run_library_script(script_name, ide, architecture, wifi_ssid, wifi_pass):
     print("run script %s with parameters: [%s], [%s], [%s], [%s]!" % (script_name, ide, architecture, wifi_ssid, wifi_pass))
 
     # Get info about OS
@@ -54,11 +53,12 @@ def run_library_script(script_name, ide, architecture, **kwargs):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Insufficient Arugments")
-        print("Use format open_project.py IDE ARCHITECTURE SSID=your_wifi_ssid PASS=your_wifi_pass")
     main_script_name = sys.argv[0]
-    main_ide = sys.argv[1]
-    main_architecture = sys.argv[2]
-    run_library_script(main_script_name, main_ide, main_architecture, **dict(arg.split('=') for arg in sys.argv[3:]))
+    parser = argparse.ArgumentParser(description='Register Aetger clients and open IDE with project.')
+    parser.add_argument('IDE', type=str, help='IDE type (Arduino, VSCode, Platformio)')
+    parser.add_argument('ARCH', type=str, help='ARCHITECTURE type (ARM, Risc-V, Lx6)')
+    parser.add_argument('SSID', type=str, help='Your WiFi SSID')
+    parser.add_argument('PASS', type=str, help='Your WiFi PASS')
+    args = parser.parse_args()
+    run_library_script(main_script_name, args.IDE, args.ARCH, args.SSID, args.PASS)
     

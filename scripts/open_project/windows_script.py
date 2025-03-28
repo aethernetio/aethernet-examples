@@ -69,12 +69,12 @@ class WindowsScript:
     #
     #  More details.
     def run(self):
-        #self.clone_repository()
-        #self.apply_patches()
-        #self.cmake_registrator()
-        #self.compile_registrator()
-        #self.modify_settings()
-        #self.register_clients()
+        self.clone_repository()
+        self.apply_patches()
+        self.cmake_registrator()
+        self.compile_registrator()
+        self.modify_settings()
+        self.register_clients()
         self.copy_header_file()
         self.install_arduino_library()
         self.open_ide()
@@ -280,7 +280,7 @@ class WindowsScript:
 
             # The command to run Arduino and open the folder
             # The 'code' command should be available in the PATH
-            arduino_path = "G:\\dev\\arduino\\Arduino IDE\\Arduino IDE.exe"
+            arduino_path = "Arduino IDE.exe"
             command = [arduino_path, self.project_directory_arduino]
             print(command)
             try:
@@ -288,6 +288,6 @@ class WindowsScript:
                 subprocess.run(command, check=True)
                 print(f"Arduino is running and opened the folder: {self.project_directory_arduino}")
             except FileNotFoundError:
-                raise NameError("Arduino was not found. Make sure that the 'Arduino IDE.exe' is available in the PATH.")
+                raise NameError(f"Arduino was not found. Make sure that the 'Arduino IDE.exe' is available in the PATH.")
             except subprocess.CalledProcessError as e:
                 raise NameError(f"Error when starting Arduino: {e}")
