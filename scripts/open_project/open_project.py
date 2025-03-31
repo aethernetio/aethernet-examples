@@ -29,6 +29,32 @@ repo_urls = {"Aether":"https://github.com/aethernetio/aether-client-cpp.git",
              "Arduino":"https://github.com/aethernetio/aether-client-arduino-library.git"}
 
 
+## Documentation for run_library_script function.
+#
+#  Runs a library script with the given parameters, detecting the OS and executing the appropriate setup.
+#
+#  Args:
+#      script_name (str): Name of the script (for logging purposes).
+#      ide (str): Target IDE (e.g., "VSCode", "Arduino", "Platformio").
+#      architecture (str): CPU architecture (e.g., "x86", "arm64").
+#      wifi_ssid (str): Wi-Fi network name (if required).
+#      wifi_pass (str): Wi-Fi password (if required).
+#
+#  Returns:
+#      None: This function does not return anything; it executes OS-specific scripts.
+#
+#  Raises:
+#      NotImplementedError: If the OS is not Windows, Linux, or macOS (Darwin).
+#
+#  Notes:
+#      - Uses platform-specific classes: `WindowsScript`, `LinuxScript`, `MacosScript`.
+#      - Prints debug information about the OS and parameters.
+#
+#  Example:
+#      >>> run_library_script("setup_env", "VSCode", "Risc-V", "MyWiFi", "secret")
+#      "run script setup_env with parameters: [VSCode], [Risc-V], [MyWiFi], [secret]!"
+#      "Script runs on Windows"  # (if OS is Windows)
+#
 def run_library_script(script_name, ide, architecture, wifi_ssid, wifi_pass):
     print("run script %s with parameters: [%s], [%s], [%s], [%s]!" % (script_name, ide, architecture, wifi_ssid, wifi_pass))
 

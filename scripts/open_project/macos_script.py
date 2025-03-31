@@ -22,10 +22,24 @@ import shutil
 from ini_file_functions import modify_ini_file
 
 
-## Documentation for a function.
+## Documentation for MacosScript class.
 #
-#  More details.
+#  Class for automating project setup and configuration on macOS systems.
+#  Handles repository cloning, building, configuration and IDE setup.
+#
 class MacosScript:
+    ## Documentation for __init__ function.
+    #
+    #  Initializes WindowsScript with project configuration parameters.
+    #
+    #  Args:
+    #      current_directory (str): Base directory for project setup.
+    #      repo_urls (dict): URLs for repositories to clone.
+    #      ide (str): Target IDE ("VSCode", "Platformio" or "Arduino").
+    #      architecture (str): Target architecture ("Risc-V", "Lx6" or default).
+    #      wifi_ssid (str): Wi-Fi network name for configuration.
+    #      wifi_pass (str): Wi-Fi password for configuration.
+    #
     def __init__(self, current_directory, repo_urls, ide, architecture, wifi_ssid, wifi_pass):
         self.current_directory = current_directory
         self.repo_urls = repo_urls
@@ -60,9 +74,24 @@ class MacosScript:
         self.ini_file = os.path.join(current_directory,"Aether","examples","registered","config","registered_config.ini")
         self.ini_file_out = os.path.join("config","file_system_init.h")
 
-    ## Documentation for a function.
+    ## Documentation for run function.
     #
-    #  More details.
+    #  Executes complete project setup workflow.
+    #
+    #  Workflow:
+    #      1. Clones repositories
+    #      2. Applies patches
+    #      3. Configures CMake
+    #      4. Compiles project
+    #      5. Modifies settings
+    #      6. Registers clients
+    #      7. Copies header files
+    #      8. Installs Arduino library (if needed)
+    #      9. Opens IDE
+    #
+    #  Raises:
+    #      NameError: If any step in the workflow fails.
+    #
     def run(self):
         self.clone_repository()
         self.apply_patches()
@@ -74,9 +103,13 @@ class MacosScript:
         self.install_arduino_library()
         self.open_ide()
 
-    ## Documentation for a function.
+    ## Documentation for clone_repository function.
     #
-    #  More details.
+    #  Clones required git repositories.
+    #
+    #  Raises:
+    #      NameError: If git clone operation fails.
+    #
     def clone_repository(self):
         if not os.path.exists(self.clone_directory_aether):
             print(f"Directory for clone Aether is {self.clone_directory_aether}")
@@ -96,9 +129,13 @@ class MacosScript:
             except subprocess.CalledProcessError as e:
                 raise NameError(f"Error when cloning the repository: {e}")
 
-    ## Documentation for a function.
+    ## Documentation for apply_patches function.
     #
-    #  More details.
+    #  Applies initial patches using git_init.ps1 script.
+    #
+    #  Raises:
+    #      NameError: If script execution fails.
+    #
     def apply_patches(self):
         script_path = os.path.join(self.clone_directory_aether, "git_init.sh")
 
@@ -111,9 +148,13 @@ class MacosScript:
         except subprocess.CalledProcessError as e:
             raise NameError(f"Error when launching Script git_init.sh: {e}")
 
-    ## Documentation for a function.
+    ## Documentation for cmake_registrator function.
     #
-    #  More details.
+    #  Configures CMake build system for the Registrator project.
+    #
+    #  Raises:
+    #      NameError: If CMake configuration fails.
+    #
     def cmake_registrator(self):
         print("Setting up CMake...")
         if os.path.exists(self.build_directory):
@@ -139,9 +180,13 @@ class MacosScript:
         except subprocess.CalledProcessError as e:
             raise NameError(f"Error when launching CMake: {e}")
 
-    ## Documentation for a function.
+    ## Documentation for compile_registrator function.
     #
-    #  More details.
+    #  Compiles the project using MSBuild.
+    #
+    #  Raises:
+    #      NameError: If compilation fails.
+    #
     def compile_registrator(self):
         print("Building project...")
         # The command to build a project using Linux make
@@ -157,9 +202,13 @@ class MacosScript:
         except subprocess.CalledProcessError as e:
             raise NameError(f"Error when building the project: {e}")
 
-    ## Documentation for a function.
+    ## Documentation for modify_settings function.
     #
-    #  More details.
+    #  Updates WiFi settings in configuration file.
+    #
+    #  Raises:
+    #      NameError: If configuration modification fails.
+    #
     def modifi_settings(self):
         section = "Aether"
         try:
@@ -176,9 +225,13 @@ class MacosScript:
         except ValueError as e:
             raise NameError(f"Error in the settings modification:", e)
 
-    ## Documentation for a function.
+    ## Documentation for register_clients function.
     #
-    #  More details.
+    #  Runs client registration process.
+    #
+    #  Raises:
+    #      NameError: If registration fails.
+    #
     def register_clients(self):
         # The command to run CMake
         register_command = [self.registrator_executable,
@@ -193,14 +246,21 @@ class MacosScript:
         except subprocess.CalledProcessError as e:
             raise NameError(f"Error when launching Aether registrator: {e}")
 
-    ## Documentation for a function.
+    ## Documentation for copy_header_file function.
     #
-    #  More details.
+    #  Copies generated header file to appropriate locations.
+    #
+    #  Raises:
+    #      NameError: If file copy operation fails.
+    #
     def copy_header_file(self):
         source_ini_file = os.path.join(self.release_directory, self.ini_file_out)
         destination_ini_file = os.path.join(self.clone_directory_aether, self.ini_file_out)
         if self.ide == "Arduino":
             destination_ini_file = os.path.join(self.clone_directory_arduino, "src", self.ini_file_out)
+
+        print(f"Source ini file is {source_ini_file}")
+        print(f"Destination ini file is {destination_ini_file}")
 
         try:
             shutil.copy(source_ini_file, destination_ini_file)
@@ -209,15 +269,19 @@ class MacosScript:
         except OSError as e:
             raise NameError(f"Error occurred: {e}")
 
-    ## Documentation for a function.
+    ## Documentation for install_arduino_library function.
     #
-    #  More details.
+    #  Installs Arduino library if Arduino IDE is selected.
+    #
     def install_arduino_library(self):
         if self.ide == "Arduino":
             print(f"Installing Arduino Library")
             # The path to the folder where the library will be unpacked
             library_source_directory = self.clone_directory_arduino
             library_destination_directory = os.path.join(self.libraries_directory_arduino, self.library_name)
+
+            if os.path.exists(library_destination_directory):
+                shutil.rmtree(library_destination_directory)
 
             try:
                 # Copy the src folder to the dst folder
@@ -228,9 +292,13 @@ class MacosScript:
             except Exception as e:
                 print(f"Error occurred: {e}")
 
-    ## Documentation for a function.
+    ## Documentation for open_ide function.
     #
-    #  More details.
+    #  Opens project in selected IDE.
+    #
+    #  Raises:
+    #      NameError: If IDE launch fails.
+    #
     def open_ide(self):
         if self.ide == "VSCode" or self.ide == "Platformio":
             # Checking if the specified folder exists

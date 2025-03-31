@@ -28,9 +28,28 @@ if TYPE_CHECKING:
     from _typeshed import SupportsRead, SupportsWrite
 
 
-## Documentation for a function.
+## Documentation for modify_ini_file function.
 #
-#  More details.
+#  Modifies a specified parameter in an INI configuration file.
+#
+#  Args:
+#      file_path (str): Path to the INI configuration file.
+#      section (str): Name of the section containing the parameter.
+#      parameter (str): Name of the parameter to modify.
+#      new_value (str): New value to assign to the parameter.
+#
+#  Raises:
+#      NameError: If specified section or parameter doesn't exist.
+#
+#  Notes:
+#      - Preserves case sensitivity of parameters.
+#      - Directly overwrites the original file.
+#      - Accepts empty strings as valid values.
+#
+#  Example:
+#      >>> modify_ini_file('settings.ini', 'Database', 'port', '5432')
+#      Parameter 'port' in the section '[Database]' changed to '5432'.
+#
 def modify_ini_file(file_path, section, parameter, new_value):
     # Creating an object ConfigParser
     config = configparser.ConfigParser()
