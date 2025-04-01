@@ -56,7 +56,8 @@ repo_urls = {"Aether":"https://github.com/aethernetio/aether-client-cpp.git",
 #      "Script runs on Windows"  # (if OS is Windows)
 #
 def run_library_script(script_name, ide, architecture, wifi_ssid, wifi_pass):
-    print("run script %s with parameters: [%s], [%s], [%s], [%s]!" % (script_name, ide, architecture, wifi_ssid, wifi_pass))
+    print("run script {} with parameters: [{}], [{}], [{}], [{}]!".format(script_name, ide, architecture, wifi_ssid,
+                                                                          wifi_pass))
 
     # Get info about OS
     os_info = platform.system()

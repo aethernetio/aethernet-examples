@@ -66,7 +66,7 @@ def modify_ini_file(file_path, section, parameter, new_value):
         # Writing the changes back to the file
         with open(file_path, 'w') as configfile: # type: SupportsWrite[str]
             config.write(configfile)
-        print(f"Parameter '{parameter}' in the section '[{section}]' changed to '{new_value}'.")
+        #print(f"Parameter '{parameter}' in the section '[{section}]' changed to '{new_value}'.")
+        print("Parameter {} in the section [{}] changed to {}.".format(parameter, section, new_value))
     else:
-        #print(f"Section '[{section}]' or parameter '{parameter}' not found in the file.")
-        raise NameError(f"Section '[{section}]' or parameter '{parameter}' not found in the file.")
+        raise NameError("Section '[{}]' or parameter '{}' not found in the file.".format(section, parameter))

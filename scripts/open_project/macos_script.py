@@ -112,22 +112,22 @@ class MacosScript:
     #
     def clone_repository(self):
         if not os.path.exists(self.clone_directory_aether):
-            print(f"Directory for clone Aether is {self.clone_directory_aether}")
+            print("Directory for clone Aether is {}".format(self.clone_directory_aether))
             # Execute git clone
             try:
                 subprocess.run(["git", "clone", self.repo_urls["Aether"], self.clone_directory_aether], check=True)
-                print(f"The repository has been successfully cloned in {self.clone_directory_aether}")
+                print("The repository has been successfully cloned in {}".format(self.clone_directory_aether))
             except subprocess.CalledProcessError as e:
-                raise NameError(f"Error when cloning the repository: {e}")
+                raise NameError("Error when cloning the repository: {}".format(e))
 
         if self.ide=="Arduino" and not os.path.exists(self.clone_directory_arduino):
-            print(f"Directory for clone Aether is {self.clone_directory_arduino}")
+            print("Directory for clone Aether is {}".format(self.clone_directory_arduino))
             # Execute git clone
             try:
                 subprocess.run(["git", "clone", self.repo_urls["Arduino"], self.clone_directory_arduino], check=True)
-                print(f"The repository has been successfully cloned in {self.clone_directory_arduino}")
+                print("The repository has been successfully cloned in {}".format(self.clone_directory_arduino))
             except subprocess.CalledProcessError as e:
-                raise NameError(f"Error when cloning the repository: {e}")
+                raise NameError("Error when cloning the repository: {}".format(e))
 
     ## Documentation for apply_patches function.
     #
@@ -144,9 +144,9 @@ class MacosScript:
                             script_path]
         try:
             subprocess.run(git_init_command, cwd=self.clone_directory_aether, check=True)
-            print(f"Script git_init.sh has been successfully launched!")
+            print("Script git_init.sh has been successfully launched!")
         except subprocess.CalledProcessError as e:
-            raise NameError(f"Error when launching Script git_init.sh: {e}")
+            raise NameError("Error when launching Script git_init.sh: {}".format(e))
 
     ## Documentation for cmake_registrator function.
     #
@@ -176,9 +176,9 @@ class MacosScript:
         try:
             # We run CMake in the specified build directory
             subprocess.run(cmake_command, cwd=self.build_directory, check=True)
-            print(f"CMake has been successfully launched!")
+            print("CMake has been successfully launched!")
         except subprocess.CalledProcessError as e:
-            raise NameError(f"Error when launching CMake: {e}")
+            raise NameError("Error when launching CMake: {}".format(e))
 
     ## Documentation for compile_registrator function.
     #
@@ -198,9 +198,9 @@ class MacosScript:
             # We specify the configuration (Release or Debug)
             subprocess.run(linux_command, cwd=self.build_directory, check=True)
 
-            print(f"The build has been completed successfully!")
+            print("The build has been completed successfully!")
         except subprocess.CalledProcessError as e:
-            raise NameError(f"Error when building the project: {e}")
+            raise NameError("Error when building the project: {}".format(e))
 
     ## Documentation for modify_settings function.
     #
@@ -216,14 +216,14 @@ class MacosScript:
             new_value = self.wifi_ssid
             modify_ini_file(self.ini_file, section, parameter, new_value)
         except ValueError as e:
-            raise NameError(f"Error in the settings modification:", e)
+            raise NameError("Error in the settings modification: {}".format(e))
 
         try:
             parameter = "wifiPass"
             new_value = self.wifi_pass
             modify_ini_file(self.ini_file, section, parameter, new_value)
         except ValueError as e:
-            raise NameError(f"Error in the settings modification:", e)
+            raise NameError("Error in the settings modification:".format(e))
 
     ## Documentation for register_clients function.
     #
@@ -242,9 +242,9 @@ class MacosScript:
         try:
             # We run CMake in the specified build directory
             subprocess.run(register_command, cwd=self.release_directory, check=False)
-            print(f"Aether registrator has been successfully launched!")
+            print("Aether registrator has been successfully launched!")
         except subprocess.CalledProcessError as e:
-            raise NameError(f"Error when launching Aether registrator: {e}")
+            raise NameError("Error when launching Aether registrator: {}".format(e))
 
     ## Documentation for copy_header_file function.
     #
@@ -259,15 +259,15 @@ class MacosScript:
         if self.ide == "Arduino":
             destination_ini_file = os.path.join(self.clone_directory_arduino, "src", self.ini_file_out)
 
-        print(f"Source ini file is {source_ini_file}")
-        print(f"Destination ini file is {destination_ini_file}")
+        print("Source ini file is {}".format(source_ini_file))
+        print("Destination ini file is {}".format(destination_ini_file))
 
         try:
             shutil.copy(source_ini_file, destination_ini_file)
         except PermissionError:
-            raise NameError(f"Permission denied!")
+            raise NameError("Permission denied!")
         except OSError as e:
-            raise NameError(f"Error occurred: {e}")
+            raise NameError("Error occurred: {}".format(e))
 
     ## Documentation for install_arduino_library function.
     #
@@ -275,7 +275,7 @@ class MacosScript:
     #
     def install_arduino_library(self):
         if self.ide == "Arduino":
-            print(f"Installing Arduino Library")
+            print("Installing Arduino Library")
             # The path to the folder where the library will be unpacked
             library_source_directory = self.clone_directory_arduino
             library_destination_directory = os.path.join(self.libraries_directory_arduino, self.library_name)
@@ -286,11 +286,11 @@ class MacosScript:
             try:
                 # Copy the src folder to the dst folder
                 shutil.copytree(library_source_directory, library_destination_directory)
-                print(f"Folder {library_source_directory} successfully copied to {library_destination_directory}")
+                print("Folder {} successfully copied to {}".format(library_source_directory,library_destination_directory))
             except FileExistsError:
-                print(f"Folder {library_destination_directory} is already exists. Delete it or choose a different name.")
+                print("Folder {} is already exists. Delete it or choose a different name.".format(library_destination_directory))
             except Exception as e:
-                print(f"Error occurred: {e}")
+                print("Error occurred: {}".format(e))
 
     ## Documentation for open_ide function.
     #
@@ -303,7 +303,7 @@ class MacosScript:
         if self.ide == "VSCode" or self.ide == "Platformio":
             # Checking if the specified folder exists
             if not os.path.isdir(self.project_directory_aether):
-                print(f"Folder '{self.project_directory_aether}' does not exist.")
+                print("Folder {} does not exist.".format(self.project_directory_aether))
                 return
 
             # The command to run VS Code and open the folder
@@ -317,15 +317,15 @@ class MacosScript:
             try:
                 # Launching VS Code
                 subprocess.run(command, check=True)
-                print(f"VS Code is running and opened the folder: {self.project_directory_aether}")
+                print("VS Code is running and opened the folder: {}".format(self.project_directory_aether))
             except FileNotFoundError:
                 raise NameError("VS Code was not found. Make sure that the 'Code.exe' is available in the PATH.")
             except subprocess.CalledProcessError as e:
-                raise NameError(f"Error when starting VS Code: {e}")
+                raise NameError("Error when starting VS Code: {}".format(e))
         elif self.ide == "Arduino":
             # Checking if the specified folder exists
             if not os.path.isdir(self.project_directory_arduino):
-                print(f"Folder '{self.project_directory_arduino}' does not exist.")
+                print("Folder '{}' does not exist.".format(self.project_directory_arduino))
                 return
 
             # The command to run Arduino and open the folder
@@ -336,8 +336,8 @@ class MacosScript:
             try:
                 # Launching Arduino
                 subprocess.run(command, check=True)
-                print(f"Arduino is running and opened the folder: {self.project_directory_arduino}")
+                print("Arduino is running and opened the folder: {}".format(self.project_directory_arduino))
             except FileNotFoundError:
                 raise NameError(f"Arduino was not found. Make sure that the 'Arduino IDE.exe' is available in the PATH.")
             except subprocess.CalledProcessError as e:
-                raise NameError(f"Error when starting Arduino: {e}")
+                raise NameError("Error when starting Arduino: {}".format(e))
