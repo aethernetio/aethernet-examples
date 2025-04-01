@@ -98,10 +98,10 @@ class WindowsScript:
     #      NameError: If any step in the workflow fails.
     #
     def run(self):
-        #self.clone_repository()
-        #self.apply_patches()
-        #self.cmake_registrator()
-        #self.compile_registrator()
+        self.clone_repository()
+        self.apply_patches()
+        self.cmake_registrator()
+        self.compile_registrator()
         self.modify_settings()
         self.register_clients()
         self.copy_header_file()

@@ -78,13 +78,63 @@ def run_library_script(script_name, ide, architecture, wifi_ssid, wifi_pass):
         print(f"Unknown OS: {os_info}")
 
 
+##
+# @mainpage Aether Client Setup
+# @section intro Introduction
+# Configuration script for Aether clients with support for multiple IDEs and architectures.
+#
+# @section usage Usage
+# Run from the command line with required arguments:
+# @code{.sh}
+# python script.py IDE ARCH SSID PASS
+# @endcode
+#
+# @section args Command Line Arguments
+# @arg IDE - development environment type (Arduino, VSCode, Platformio)
+# @arg ARCH - target architecture (ARM, Risc-V, Lx6)
+# @arg SSID - WiFi network identifier (SSID)
+# @arg PASS - WiFi network password (PASS)
+#
+# @section example Example
+# @code{.sh}
+# python setup.py VSCode ARM MyWiFiSSID MyWiFiPASS
+# @endcode
 if __name__ == "__main__":
+    ## @var main_script_name
+    # Name of the main executable script
+    ## @var main_script_name
+    # Name of the main executable script
     main_script_name = sys.argv[0]
-    parser = argparse.ArgumentParser(description='Register Aetger clients and open IDE with project.')
+
+    # Command line arguments parsing
+    parser = argparse.ArgumentParser(
+        description='Register Aetger clients and open IDE with project.'
+    )
+
+    ## @var IDE
+    # @brief Type of development environment (Arduino/VSCode/Platformio)
     parser.add_argument('IDE', type=str, help='IDE type (Arduino, VSCode, Platformio)')
+
+    ## @var ARCH
+    # @brief Target architecture type (ARM/Risc-V/Lx6)
     parser.add_argument('ARCH', type=str, help='ARCHITECTURE type (ARM, Risc-V, Lx6)')
+
+    ## @var SSID
+    # @brief WiFi network identifier (SSID)
     parser.add_argument('SSID', type=str, help='Your WiFi SSID')
+
+    ## @var PASS
+    # @brief WiFi network password
     parser.add_argument('PASS', type=str, help='Your WiFi PASS')
+
     args = parser.parse_args()
-    run_library_script(main_script_name, args.IDE, args.ARCH, args.SSID, args.PASS)
+
+    # Execute library main script
+    run_library_script(
+        main_script_name,
+        args.IDE,
+        args.ARCH,
+        args.SSID,
+        args.PASS
+    )
     
