@@ -47,11 +47,11 @@ class MacosScript:
         self.wifi_ssid = wifi_ssid
         self.wifi_pass = wifi_pass
 
-        arch_dir = "cmake"
+        architecture_dir = "cmake"
         if architecture=="Risc-V":
-            arch_dir = "espressif_riscv"
+            architecture_dir = "espressif_riscv"
         elif architecture=="Lx6":
-            arch_dir = "xtensa_lx6"
+            architecture_dir = "xtensa_lx6"
 
         ide_dir = "vscode"
         if ide == "Platformio":
@@ -63,7 +63,7 @@ class MacosScript:
         self.clone_directory_aether = os.path.join(current_directory,"Aether")
         self.clone_directory_arduino = os.path.join(current_directory,"Arduino")
         self.source_directory = os.path.join(current_directory,"Aether","projects","cmake")
-        self.project_directory_aether = os.path.join(current_directory,"Aether","projects",arch_dir,ide_dir,"aether-client-cpp")
+        self.project_directory_aether = os.path.join(current_directory,"Aether","projects",architecture_dir,ide_dir,"aether-client-cpp")
         self.project_directory_arduino = os.path.join(current_directory,"Arduino","Examples","Registered")
         self.libraries_directory_arduino = os.path.expanduser("~/Arduino/libraries")
         # Build
