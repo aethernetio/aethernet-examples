@@ -15,24 +15,19 @@
 # limitations under the License.
 #
 
-## @package windows_script
-#  Documentation for this module.
-#
-#  More details.
-
 import os
 import subprocess
 import shutil
 
 from pathlib import PureWindowsPath
-from ini_file_functions import modify_ini_file
+from parent_script import ParentScript
 
 ## Documentation for WindowsScript class.
 #
 #  Class for automating project setup and configuration on Windows systems.
 #  Handles repository cloning, building, configuration and IDE setup.
 #
-class WindowsScript:
+class WindowsScript(ParentScript):
     ## Documentation for __init__ function.
     #
     #  Initializes WindowsScript with project configuration parameters.
@@ -46,93 +41,14 @@ class WindowsScript:
     #      wifi_pass (str): WiFi password for configuration.
     #
     def __init__(self, current_directory, repo_urls, ide, architecture, wifi_ssid, wifi_pass):
-        self.current_directory = current_directory
-        self.repo_urls = repo_urls
-        self.ide = ide
-        self.wifi_ssid = wifi_ssid
-        self.wifi_pass = wifi_pass
+        super().__init__(current_directory, repo_urls, ide, architecture, wifi_ssid, wifi_pass)
 
-        architecture_dir = "cmake"
-        if architecture=="Risc-V":
-            architecture_dir = "espressif_riscv"
-        elif architecture=="Lx6":
-            architecture_dir = "xtensa_lx6"
-
-        ide_dir = "vscode"
-        if ide == "Platformio":
-            ide_dir = "platformio"
-
-        # Library name
-        self.library_name = "Aether"
         # Directories
-        self.clone_directory_aether = os.path.join(current_directory,"Aether")
-        self.clone_directory_arduino = os.path.join(current_directory,"Arduino")
-        self.source_directory = os.path.join(current_directory,"Aether","projects","cmake")
-        self.project_directory_aether = os.path.join(current_directory,"Aether","projects",architecture_dir,ide_dir,"aether-client-cpp")
-        self.project_directory_arduino = os.path.join(current_directory,"Arduino","Examples","Registered")
         self.libraries_directory_arduino = os.path.expanduser("~/Documents/Arduino/libraries")
         # Build
         self.build_directory = "./build"
         self.release_directory = "./build/Release"
         self.registrator_executable = "./build/Release/aether-registrator.exe"
-        # Files
-        self.ini_file = os.path.join(current_directory,"Aether","examples","registered","config","registered_config.ini")
-        self.ini_file_out = os.path.join("config","file_system_init.h")
-
-    ## Documentation for run function.
-    #
-    #  Executes complete project setup workflow.
-    #
-    #  Workflow:
-    #      1. Clones repositories
-    #      2. Applies patches
-    #      3. Configures CMake
-    #      4. Compiles project
-    #      5. Modifies settings
-    #      6. Registers clients
-    #      7. Copies header files
-    #      8. Installs Arduino library (if needed)
-    #      9. Opens IDE
-    #
-    #  Raises:
-    #      NameError: If any step in the workflow fails.
-    #
-    def run(self):
-        self.clone_repository()
-        self.apply_patches()
-        self.cmake_registrator()
-        self.compile_registrator()
-        self.modify_settings()
-        self.register_clients()
-        self.copy_header_file()
-        self.install_arduino_library()
-        self.open_ide()
-
-    ## Documentation for clone_repository function.
-    #
-    #  Clones required git repositories.
-    #
-    #  Raises:
-    #      NameError: If git clone operation fails.
-    #
-    def clone_repository(self):
-        if not os.path.exists(self.clone_directory_aether):
-            print(f"Directory for clone Aether is {self.clone_directory_aether}")
-            # Execute git clone
-            try:
-                subprocess.run(["git", "clone", self.repo_urls["Aether"], self.clone_directory_aether], check=True)
-                print("The repository has been successfully cloned in {}".format(self.clone_directory_aether))
-            except subprocess.CalledProcessError as e:
-                raise NameError("Error when cloning the repository: {}".format(e))
-
-        if self.ide=="Arduino" and not os.path.exists(self.clone_directory_arduino):
-            print("Directory for clone Aether is {}".format(self.clone_directory_arduino))
-            # Execute git clone
-            try:
-                subprocess.run(["git", "clone", self.repo_urls["Arduino"], self.clone_directory_arduino], check=True)
-                print("The repository has been successfully cloned in {}".format(self.clone_directory_arduino))
-            except subprocess.CalledProcessError as e:
-                raise NameError("Error when cloning the repository: {}".format(e))
 
     ## Documentation for apply_patches function.
     #
@@ -163,7 +79,6 @@ class WindowsScript:
     #      NameError: If CMake configuration fails.
     #
     def cmake_registrator(self):
-        print("Setting up CMake...")
         if os.path.exists(self.build_directory):
             shutil.rmtree(self.build_directory)
         os.makedirs(self.build_directory)
@@ -197,7 +112,6 @@ class WindowsScript:
     #      NameError: If compilation fails.
     #
     def compile_registrator(self):
-        print("Building project...")
         # The command to build a project using MSBuild
         msbuild_command = [
             "msbuild.exe",
@@ -212,29 +126,6 @@ class WindowsScript:
             print(f"The build has been completed successfully!")
         except subprocess.CalledProcessError as e:
             raise NameError("Error when building the project: {}".format(e))
-
-    ## Documentation for modify_settings function.
-    #
-    #  Updates WiFi settings in configuration file.
-    #
-    #  Raises:
-    #      NameError: If configuration modification fails.
-    #
-    def modify_settings(self):
-        section = "Aether"
-        try:
-            parameter = "wifiSsid"
-            new_value = self.wifi_ssid
-            modify_ini_file(self.ini_file, section, parameter, new_value)
-        except ValueError as e:
-            raise NameError("Error in the settings modification: {}".format(e))
-
-        try:
-            parameter = "wifiPass"
-            new_value = self.wifi_pass
-            modify_ini_file(self.ini_file, section, parameter, new_value)
-        except ValueError as e:
-            raise NameError("Error in the settings modification: {}".format(e))
 
     ## Documentation for register_clients function.
     #
@@ -253,7 +144,7 @@ class WindowsScript:
                             self.ini_file,
                             source_ini_file]
 
-        print(register_command)
+        print("The client registration command is {}".format(register_command))
         try:
             # We run CMake in the specified build directory
             subprocess.run(register_command, cwd=self.release_directory, check=False)
@@ -284,9 +175,9 @@ class WindowsScript:
         try:
             shutil.copy(source_ini_file, destination_ini_file)
         except PermissionError:
-            raise NameError(f"Permission denied!")
+            raise NameError("Permission denied!")
         except OSError as e:
-            raise NameError(f"Error occurred: {e}")
+            raise NameError("Error occurred: {e}")
 
     ## Documentation for install_arduino_library function.
     #
@@ -322,17 +213,18 @@ class WindowsScript:
         if self.ide == "VSCode" or self.ide == "Platformio":
             # Checking if the specified folder exists
             if not os.path.isdir(self.project_directory_aether):
-                print(f"Folder '{self.project_directory_aether}' does not exist.")
+                print("Folder {} does not exist.".format(self.project_directory_aether))
                 return
 
             # The command to run VS Code and open the folder
             # The 'code' command should be available in the PATH
             vscode_path = "Code.exe"
-            command = [vscode_path, self.project_directory_aether]
+            command = [vscode_path,
+                       self.project_directory_aether]
 
             try:
                 # Launching VS Code
-                subprocess.run(command, check=True)
+                subprocess.run(command, check=False)
                 print("VS Code is running and opened the folder: {}".format(self.project_directory_aether))
             except FileNotFoundError:
                 raise NameError("VS Code was not found. Make sure that the 'Code.exe' is available in the PATH.")
@@ -351,7 +243,7 @@ class WindowsScript:
             print(command)
             try:
                 # Launching Arduino
-                subprocess.run(command, check=True)
+                subprocess.run(command, check=False)
                 print("Arduino is running and opened the folder: {}".format(self.project_directory_arduino))
             except FileNotFoundError:
                 raise NameError("Arduino was not found. Make sure that the 'Arduino IDE.exe' is available in the PATH.")
