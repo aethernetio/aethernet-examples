@@ -17,6 +17,7 @@
 
 import os
 import subprocess
+import shutil
 
 from ini_file_functions import modify_ini_file
 
@@ -72,14 +73,14 @@ class ParentScript:
     #
     def run(self):
         self.clone_repository()
-        self.apply_patches()
-        self.cmake_registrator()
-        self.compile_registrator()
+        self.apply_patches(None)
+        self.cmake_registrator(None, None)
+        self.compile_registrator(None, None)
         self.modify_settings()
-        self.register_clients()
-        self.copy_header_file()
-        self.install_arduino_library()
-        self.open_ide()
+        self.register_clients(None, None)
+        self.copy_header_file(None, None)
+        self.install_arduino_library(None)
+        self.open_ide(None)
 
     ## Documentation for clone_repository function.
     #
@@ -114,8 +115,13 @@ class ParentScript:
     #  Raises:
     #      NameError: If script execution fails.
     #
-    def apply_patches(self):
+    def apply_patches(self, git_init_command):
         print("Apply patches!")
+        try:
+            subprocess.run(git_init_command, cwd=self.clone_directory_aether, check=True)
+            print("Script git_init.ps1 has been successfully launched!")
+        except subprocess.CalledProcessError as e:
+            raise NameError("Error when launching Script git_init.ps1: {}".format(e))
 
     ## Documentation for cmake_registrator function.
     #
@@ -124,8 +130,14 @@ class ParentScript:
     #  Raises:
     #      NameError: If CMake configuration fails.
     #
-    def cmake_registrator(self):
+    def cmake_registrator(self, cmake_command, build_directory):
         print("Setting up CMake...")
+        try:
+            # We run CMake in the specified build directory
+            subprocess.run(cmake_command, cwd=build_directory, check=True)
+            print("CMake has been successfully launched!")
+        except subprocess.CalledProcessError as e:
+            raise NameError("Error when launching CMake: {}".format(e))
 
     ## Documentation for compile_registrator function.
     #
@@ -134,8 +146,15 @@ class ParentScript:
     #  Raises:
     #      NameError: If compilation fails.
     #
-    def compile_registrator(self):
+    def compile_registrator(self, build_command, build_directory):
         print("Building project...")
+        try:
+            # We specify the configuration (Release or Debug)
+            subprocess.run(build_command, cwd=build_directory, check=True)
+
+            print(f"The build has been completed successfully!")
+        except subprocess.CalledProcessError as e:
+            raise NameError("Error when building the project: {}".format(e))
 
     ## Documentation for modify_settings function.
     #
@@ -168,8 +187,15 @@ class ParentScript:
     #  Raises:
     #      NameError: If registration fails.
     #
-    def register_clients(self):
+    def register_clients(self, register_command, release_directory):
         print("Register clients...")
+        print("The client registration command is {}".format(register_command))
+        try:
+            # We run CMake in the specified build directory
+            subprocess.run(register_command, cwd=release_directory, check=False)
+            print("Aether registrator has been successfully launched!")
+        except subprocess.CalledProcessError as e:
+            raise NameError("Error when launching Aether registrator: {}".format(e))
 
     ## Documentation for copy_header_file function.
     #
@@ -178,15 +204,41 @@ class ParentScript:
     #  Raises:
     #      NameError: If file copy operation fails.
     #
-    def copy_header_file(self):
+    def copy_header_file(self, source_ini_file, destination_ini_file):
         print("Copy header file...")
+        print("Source ini file is {}".format(source_ini_file))
+        print("Destination ini file is {}".format(destination_ini_file))
+
+        try:
+            shutil.copy(source_ini_file, destination_ini_file)
+        except PermissionError:
+            raise NameError("Permission denied!")
+        except OSError as e:
+            raise NameError("Error occurred: {e}")
 
     ## Documentation for install_arduino_library function.
     #
     #  Installs Arduino library if Arduino IDE is selected.
     #
-    def install_arduino_library(self):
+    def install_arduino_library(self, directory_arduino):
         print("Install arduino library...")
+        if self.ide == "Arduino":
+            print("Installing Arduino Library")
+            # The path to the folder where the library will be unpacked
+            library_source_directory = self.clone_directory_arduino
+            library_destination_directory = os.path.join(directory_arduino, self.library_name)
+
+            if os.path.exists(library_destination_directory):
+                shutil.rmtree(library_destination_directory)
+
+            try:
+                # Copy the src folder to the dst folder
+                shutil.copytree(library_source_directory, library_destination_directory)
+                print("Folder {} successfully copied to {}".format(library_source_directory, library_destination_directory))
+            except FileExistsError:
+                print("Folder {} is already exists. Delete it or choose a different name.".format(library_destination_directory))
+            except Exception as e:
+                print("Error occurred: {}".format(e))
 
     ## Documentation for open_ide function.
     #
@@ -195,5 +247,34 @@ class ParentScript:
     #  Raises:
     #      NameError: If IDE launch fails.
     #
-    def open_ide(self):
+    def open_ide(self, command):
         print("Open IDE...")
+        print("Command is {}".format(command))
+        if self.ide == "VSCode" or self.ide == "Platformio":
+            # Checking if the specified folder exists
+            if not os.path.isdir(self.project_directory_aether):
+                print("Folder {} does not exist.".format(self.project_directory_aether))
+                return
+
+            try:
+                # Launching VS Code
+                subprocess.Popen(command, stdout=None, stderr=None, stdin=None, close_fds=True)
+                print("VS Code is running and opened the folder: {}".format(self.project_directory_aether))
+            except FileNotFoundError:
+                raise NameError("VS Code was not found. Make sure that the 'Code.exe' is available in the PATH.")
+            except subprocess.CalledProcessError as e:
+                raise NameError("Error when starting VS Code: {}".format(e))
+        elif self.ide == "Arduino":
+            # Checking if the specified folder exists
+            if not os.path.isdir(self.project_directory_arduino):
+                print("Folder {} does not exist.".format(self.project_directory_arduino))
+                return
+
+            try:
+                # Launching Arduino
+                subprocess.Popen(command, stdout=None, stderr=None, stdin=None, close_fds=True)
+                print("Arduino is running and opened the folder: {}".format(self.project_directory_arduino))
+            except FileNotFoundError:
+                raise NameError("Arduino was not found. Make sure that the 'Arduino IDE.exe' is available in the PATH.")
+            except subprocess.CalledProcessError as e:
+                raise NameError("Error when starting Arduino: {}".format(e))
