@@ -55,18 +55,17 @@ int main() {
   auto client_register_action = ClientRegister{*aether_app};
 
   // Create a subscription to the Result event
-  auto on_registered =
-      client_register_action.SubscribeOnResult([&](auto const& action) {
-        auto [client_alice, client_bob] = action.get_clients();
-        alice = ae::make_unique<Alice>(*aether_app, std::move(client_alice),
-                                       time_synchronizer, client_bob->uid());
-        bob = ae::make_unique<Bob>(*aether_app, client_bob, time_synchronizer);
-        // Save the current aether state
-        aether_app->domain().SaveRoot(aether_app->aether());
-      });
+  client_register_action.ResultEvent().Subscribe([&](auto const& action) {
+    auto [client_alice, client_bob] = action.get_clients();
+    alice = ae::make_unique<Alice>(*aether_app, std::move(client_alice),
+                                   time_synchronizer, client_bob->uid());
+    bob = ae::make_unique<Bob>(*aether_app, client_bob, time_synchronizer);
+    // Save the current aether state
+    aether_app->domain().SaveRoot(aether_app->aether());
+  });
 
   // Subscription to the Error event
-  auto on_register_failed = client_register_action.SubscribeOnError(
+  client_register_action.ErrorEvent().Subscribe(
       [&](auto const&) { aether_app->Exit(1); });
 
   while (!aether_app->IsExited()) {
@@ -114,7 +113,7 @@ Alice::Alice(ae::AetherApp& aether_app, ae::Client::ptr client_alice,
       interval_sender_{ae::ActionContext{*aether_->action_processor},
                        time_synchronizer, p2pstream_,
                        std::chrono::milliseconds{5000}},
-      interval_sender_subscription_{interval_sender_.SubscribeOnError(
+      interval_sender_subscription_{interval_sender_.ErrorEvent().Subscribe(
           [&](auto const&) { aether_app.Exit(1); })} {}
 ```
 
@@ -151,10 +150,11 @@ ae::TimePoint Alice::IntervalSender::Update(ae::TimePoint current_time) {
         {std::begin(ping_message), std::end(ping_message)}, current_time);
 
     // notify about error
-    send_subscriptions_.Push(send_action->SubscribeOnError([&](auto const&) {
-      std::cerr << "ping send error" << '\n';
-      ae::Action<IntervalSender>::Error(*this);
-    }));
+    send_subscriptions_.Push(
+        send_action->ErrorEvent().Subscribe([&](auto const&) {
+          std::cerr << "ping send error" << '\n';
+          ae::Action<IntervalSender>::Error(*this);
+        }));
 
     sent_time_ = current_time;
   }
