@@ -15,8 +15,8 @@
 cmake_minimum_required(VERSION 3.16)
 
 # use Release build by default
-if(NOT DEFINED CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Release")
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "")
 endif()
 
 project(ping-pong-example VERSION 1.0 LANGUAGES C CXX)
@@ -31,7 +31,7 @@ endif()
 
 # add user provided config wich will be included as regular .h file
 # Add a user-provided config file, which will be included as a regular .h file
-set(USER_CONFIG user_config.h)
+set(USER_CONFIG user_config.h CACHE PATH "" FORCE)
 # ${USER_CONFIG} must be an absolute path or a path to something listed in include directories
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
