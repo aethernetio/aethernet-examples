@@ -21,7 +21,7 @@ cd ..
 mkdir build-example
 cd build-example
 cmake ..
-cmake --build . --config Release
+cmake --build . --parallel --config Release
 cd Release
 
 echo "Get a reference ping to the Aethernet infrastructure"

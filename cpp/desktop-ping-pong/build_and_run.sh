@@ -20,10 +20,11 @@ cd ../
 mkdir build-example
 cd build-example
 cmake ..
-cmake --build .
+cmake --build . --parallel --config Release
 
 echo "Get a reference ping to the Aethernet infrastructure"
 ping cloud.aethernet.io -c 5
+sleep 5
 
 echo "Run example"
 ./ping-pong-example
