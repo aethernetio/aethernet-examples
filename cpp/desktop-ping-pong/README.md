@@ -24,7 +24,7 @@ if (NOT DEFINED AE_DISTILLATION)
 endif()
 
 # Add a user-provided config file, which will be included as a regular .h file
-set(USER_CONFIG user_config.h)
+set(USER_CONFIG user_config.h CACHE PATH "" FORCE)
 # ${USER_CONFIG} must be an absolute path or a path to something listed in include directories
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 

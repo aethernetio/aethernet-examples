@@ -13,17 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# PASS utm_source hash a first arg
+UTM_ID=${1:-0}
+
 git submodule update --init --remote aether-client-cpp
 cd aether-client-cpp
 ./git_init.sh
 cd ../
 mkdir build-example
 cd build-example
-cmake ..
-cmake --build .
+cmake -DUTM_ID=${UTM_ID} ..
+cmake --build . --parallel --config Release
 
 echo "Get a reference ping to the Aethernet infrastructure"
 ping cloud.aethernet.io -c 5
+sleep 5
 
 echo "Run example"
 ./ping-pong-example

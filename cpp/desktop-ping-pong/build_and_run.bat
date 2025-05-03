@@ -12,7 +12,15 @@ REM distributed under the License is distributed on an "AS IS" BASIS,
 REM WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 REM See the License for the specific language governing permissions and
 REM limitations under the License.
-@echo on
+
+REM Set UTM_ID to %1 if it provided
+if "%~1" == "" if [%1] == [] goto :DefaultUtmId
+set UTM_ID=%1
+goto :StartBuild
+:DefaultUtmId
+set UTM_ID=0
+
+:StartBuild
 
 git submodule update --init --remote aether-client-cpp
 cd aether-client-cpp
@@ -20,8 +28,8 @@ call git_init.bat
 cd ..
 mkdir build-example
 cd build-example
-cmake ..
-cmake --build . --config Release
+cmake -DUTM_ID=%UTM_ID% ..
+cmake --build . --parallel --config Release
 cd Release
 
 echo "Get a reference ping to the Aethernet infrastructure"
