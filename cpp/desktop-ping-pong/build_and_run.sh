@@ -16,6 +16,10 @@
 # PASS utm_source hash a first arg
 UTM_ID=${1:-0}
 
+# Get the number of processors for linux or mac or use 1
+NPROC=$(echo "$(nproc 2> /dev/null || sysctl -n hw.logicalcpu 2> /dev/null || 1)")
+echo "NRPOC count is ${NPROC}"
+
 git submodule update --init --remote aether-client-cpp
 cd aether-client-cpp
 ./git_init.sh
@@ -23,7 +27,7 @@ cd ../
 mkdir build-example
 cd build-example
 cmake -DUTM_ID=${UTM_ID} ..
-cmake --build . --parallel --config Release
+cmake --build . --parallel "${NPROC}" --config Release
 
 echo "Get a reference ping to the Aethernet infrastructure"
 ping cloud.aethernet.io -c 5
