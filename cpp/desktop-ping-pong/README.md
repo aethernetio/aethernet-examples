@@ -130,13 +130,13 @@ They are full-duplex, so you can send messages through the tunnel and receive re
 ```cpp
 Alice::IntervalSender::IntervalSender(ae::ActionContext action_context,
                                       TimeSynchronizer& time_synchronizer,
-                                      ae::ByteStream& stream,
+                                      ae::ByteIStream& stream,
                                       ae::Duration interval)
     : ae::Action<IntervalSender>{action_context},
       stream_{stream},
       time_synchronizer_{&time_synchronizer},
       interval_{interval},
-      response_subscription_{stream.in().out_data_event().Subscribe(
+      response_subscription_{stream.out_data_event().Subscribe(
           *this, ae::MethodPtr<&IntervalSender::ResponseReceived>{})} {}
 
 ae::TimePoint Alice::IntervalSender::Update(ae::TimePoint current_time) {
@@ -146,8 +146,8 @@ ae::TimePoint Alice::IntervalSender::Update(ae::TimePoint current_time) {
     time_synchronizer_->SetPingSentTime(current_time);
 
     std::cout << "send \"ping\"" << '\n';
-    auto send_action = stream_.in().Write(
-        {std::begin(ping_message), std::end(ping_message)}, current_time);
+    auto send_action =
+        stream_.Write({std::begin(ping_message), std::end(ping_message)});
 
     // notify about error
     send_subscriptions_.Push(
@@ -177,18 +177,18 @@ Bob::Bob(ae::AetherApp& aether_app, ae::Client::ptr client_bob,
               *this, ae::MethodPtr<&Bob::OnNewStream>{})} {}
 
 void Bob::OnNewStream(ae::Uid destination_uid, ae::StreamId stream_id,
-                      std::unique_ptr<ae::ByteStream> message_stream) {
+                      ae::ByteIStream& message_stream) {
   p2pstream_ = ae::make_unique<ae::P2pSafeStream>(
       ae::ActionContext{*aether_->action_processor}, kSafeStreamConfig,
       ae::make_unique<ae::P2pStream>(
           ae::ActionContext{*aether_->action_processor}, client_bob_,
-          destination_uid, stream_id, std::move(message_stream)));
+          destination_uid, stream_id, message_stream));
   StreamCreated(*p2pstream_);
 }
 
-void Bob::StreamCreated(ae::ByteStream& stream) {
+void Bob::StreamCreated(ae::ByteIStream& stream) {
   message_receive_subscription_ =
-      stream.in().out_data_event().Subscribe([&](auto const& data_buffer) {
+      stream.out_data_event().Subscribe([&](auto const& data_buffer) {
         auto ping_message =
             std::string_view{reinterpret_cast<char const*>(data_buffer.data()),
                              data_buffer.size()};
@@ -201,8 +201,7 @@ void Bob::StreamCreated(ae::ByteStream& stream) {
         time_synchronizer_->SetPongSentTime(ae::Now());
         constexpr std::string_view pong_message = "pong";
         std::cout << "send \"pong\"" << '\n';
-        stream.in().Write({std::begin(pong_message), std::end(pong_message)},
-                          ae::Now());
+        stream.Write({std::begin(pong_message), std::end(pong_message)});
       });
 }
 ```
