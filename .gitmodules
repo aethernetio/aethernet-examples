@@ -2,3 +2,7 @@
 	path = cpp/desktop-ping-pong/aether-client-cpp
 	url = https://github.com/aethernetio/aether-client-cpp.git
 	branch = main
+[submodule "temperature-sensor-app/cpp-client/aether-client-cpp"]
+	path = temperature-sensor-app/cpp-client/aether-client-cpp
+	url = https://github.com/aethernetio/aether-client-cpp.git
+	branch = main
