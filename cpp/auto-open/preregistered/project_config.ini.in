@@ -1,0 +1,18 @@
+[Aether]
+wifiSsid = @wifi_ssid@
+wifiPass = @wifi_pass@
+; public keys for registration server
+sodiumKey = 4F202A94AB729FE9B381613AE77A8A7D89EDAB9299C3320D1A0B994BA710CCEB
+hydrogenKey = 883B4D7E0FB04A38CA12B3A451B00942048858263EE6E6D61150F2EF15F40343
+
+parentsNum = 1
+serversNum = 1
+[ParentID1]
+; client's parent
+uid = 3ac931653d37497087a6fa4ee27744e4
+clientsNum = 2
+[ServerID1]
+ipAddressType = kUrlAddress
+ipAddress = registration.aethernet.io
+ipPort = 9010
+ipProtocol = kTcp
