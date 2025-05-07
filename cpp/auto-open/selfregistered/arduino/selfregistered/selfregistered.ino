@@ -54,7 +54,7 @@ void bob_meet_alice(ae::Client::ptr const& alice_client,
       *context->aether_app->aether()->action_processor, kSafeStreamConfig,
       ae::make_unique<ae::P2pStream>(
           *context->aether_app->aether()->action_processor, bob_client,
-          alice_client->uid(), ae::StreamId{0}));
+          alice_client->uid()));
 
   auto bob_say = std::string_view{"Hello"};
   auto bob_send_message =
@@ -78,12 +78,12 @@ void bob_meet_alice(ae::Client::ptr const& alice_client,
   });
 
   alice_client->client_connection()->new_stream_event().Subscribe(
-      [&, alice_client](auto uid, auto id, auto& stream) {
+      [&, alice_client](auto uid, auto stream) {
         context->alice_stream = ae::make_unique<ae::P2pSafeStream>(
             *context->aether_app->aether()->action_processor, kSafeStreamConfig,
             ae::make_unique<ae::P2pStream>(
                 *context->aether_app->aether()->action_processor, alice_client,
-                uid, id, stream));
+                uid, std::move(stream)));
 
         context->alice_stream->out_data_event().Subscribe(
             [&](auto const& data) {

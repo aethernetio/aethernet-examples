@@ -153,8 +153,8 @@ class Bob {
                TimeSynchronizer& time_synchronizer);
 
  private:
-  void OnNewStream(ae::Uid destination_uid, ae::StreamId stream_id,
-                   ae::ByteIStream& message_stream);
+  void OnNewStream(ae::Uid destination_uid,
+                   std::unique_ptr<ae::ByteIStream> message_stream);
   void StreamCreated(ae::ByteIStream& stream);
 
   ae::Aether::ptr aether_;
@@ -292,7 +292,7 @@ Alice::Alice(ae::AetherApp& aether_app, ae::Client::ptr client_alice,
                  kSafeStreamConfig,
                  ae::make_unique<ae::P2pStream>(
                      ae::ActionContext{*aether_->action_processor},
-                     client_alice_, bobs_uid, ae::StreamId{0})},
+                     client_alice_, bobs_uid)},
       interval_sender_{ae::ActionContext{*aether_->action_processor},
                        time_synchronizer, p2pstream_,
                        std::chrono::milliseconds{5000}},
@@ -353,13 +353,13 @@ Bob::Bob(ae::AetherApp& aether_app, ae::Client::ptr client_bob,
           client_bob_->client_connection()->new_stream_event().Subscribe(
               *this, ae::MethodPtr<&Bob::OnNewStream>{})} {}
 
-void Bob::OnNewStream(ae::Uid destination_uid, ae::StreamId stream_id,
-                      ae::ByteIStream& message_stream) {
+void Bob::OnNewStream(ae::Uid destination_uid,
+                      std::unique_ptr<ae::ByteIStream> message_stream) {
   p2pstream_ = ae::make_unique<ae::P2pSafeStream>(
       ae::ActionContext{*aether_->action_processor}, kSafeStreamConfig,
       ae::make_unique<ae::P2pStream>(
           ae::ActionContext{*aether_->action_processor}, client_bob_,
-          destination_uid, stream_id, message_stream));
+          destination_uid, std::move(message_stream)));
   StreamCreated(*p2pstream_);
 }
 
