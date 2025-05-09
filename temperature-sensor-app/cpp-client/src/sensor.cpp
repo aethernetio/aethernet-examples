@@ -63,8 +63,7 @@ Sensor::Sensor(ae::Aether::ptr const& aether, ae::Client::ptr client,
       sensor_api_{protocol_context_},
       sensor_reader_{*aether->action_processor, std::chrono::seconds{10}},
       send_stream_{ae::make_unique<ae::P2pStream>(*aether->action_processor,
-                                                  client_, application_uid_,
-                                                  ae::StreamId{0})},
+                                                  client_, application_uid_)},
       value_changed_sub_{sensor_reader_.value_changed_event().Subscribe(
           *this, ae::MethodPtr<&Sensor::OnValueChanged>{})} {}
 

@@ -15,7 +15,6 @@
  */
 
 #include "aether/aether_app.h"
-#include "aether/literal_array.h"
 
 #include "sensor.h"
 
@@ -23,11 +22,11 @@
 #  error APP_ID must be defined
 #endif
 
-int main() {
-  auto aether_app = ae::AetherApp::Construct(ae::AetherAppConstructor{});
+int client_main(ae::AetherAppConstructor&& aether_app_constructor) {
+  auto aether_app = ae::AetherApp::Construct(std::move(aether_app_constructor));
 
   std::unique_ptr<Sensor> sensor;
-  auto app_id = ae::Uid{ae::MakeLiteralArray(APP_ID)};
+  auto app_id = ae::Uid::FromLit(APP_ID);
 
   ae::Event<void(ae::Client::ptr client)> client_registered;
   ae::EventSubscriber{client_registered}.Subscribe([&](auto client) {
@@ -42,8 +41,7 @@ int main() {
     client_registered.Emit(aether_app->aether()->clients()[0]);
   } else {
     // register new one
-    auto reg_action = aether_app->aether()->RegisterClient(
-        ae::Uid{ae::MakeLiteralArray(APP_ID)});
+    auto reg_action = aether_app->aether()->RegisterClient(app_id);
     reg_action->ResultEvent().Subscribe([&](auto const& reg_action) {
       client_registered.Emit(reg_action.client());
     });
