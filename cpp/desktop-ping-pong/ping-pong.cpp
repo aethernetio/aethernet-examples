@@ -29,7 +29,7 @@
 #include "aether/aether_app.h"
 
 static constexpr auto kParentUid =
-    ae::Uid{ae::MakeLiteralArray("3ac931653d37497087a6fa4ee27744e4")};
+    ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4");
 
 constexpr ae::SafeStreamConfig kSafeStreamConfig{
     std::numeric_limits<std::uint16_t>::max(),                // buffer_capacity
