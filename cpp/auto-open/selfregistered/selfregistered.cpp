@@ -133,7 +133,7 @@ void setup() {
   }));
 
   auto alice_registrator = context->aether_app->aether()->RegisterClient(
-      ae::Uid{ae::MakeLiteralArray("3ac931653d37497087a6fa4ee27744e4")});
+      ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4"));
   alice_registrator->ResultEvent().Subscribe([&](auto const& registrar) {
     context->clients_registered_event.Emit<0>(registrar.client());
   });
@@ -143,7 +143,7 @@ void setup() {
   });
 
   auto bob_registrator = context->aether_app->aether()->RegisterClient(
-      ae::Uid{ae::MakeLiteralArray("3ac931653d37497087a6fa4ee27744e4")});
+      ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4"));
 
   bob_registrator->ResultEvent().Subscribe([&](auto const& registrar) {
     context->clients_registered_event.Emit<1>(registrar.client());
