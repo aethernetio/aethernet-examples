@@ -145,6 +145,7 @@ int main() {
     alice = ae::make_unique<Alice>(*aether_app, std::move(client_alice),
                                    time_synchronizer, client_bob->uid());
     bob = ae::make_unique<Bob>(*aether_app, client_bob, time_synchronizer);
+    client_bob->client_connection()->SendTelemetry();
     // Save the current aether state
     aether_app->domain().SaveRoot(aether_app->aether());
   });
