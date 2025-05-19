@@ -26,13 +26,13 @@ int client_main(ae::AetherAppConstructor&& aether_app_constructor) {
   auto aether_app = ae::AetherApp::Construct(std::move(aether_app_constructor));
 
   std::unique_ptr<Sensor> sensor;
-  auto app_id = ae::Uid::FromLit(APP_ID);
+  auto app_id = ae::Uid::FromString(APP_ID);
 
   ae::Event<void(ae::Client::ptr client)> client_registered;
   ae::EventSubscriber{client_registered}.Subscribe([&](auto client) {
     aether_app->domain().SaveRoot(aether_app->aether());
-    sensor = ae::make_unique<Sensor>(aether_app->aether(), std::move(client),
-                                     app_id);
+    sensor = ae::make_unique<Sensor>(aether_app->aether(), client, app_id);
+    client->client_connection()->SendTelemetry();
   });
 
   // get client
