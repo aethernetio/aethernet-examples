@@ -168,7 +168,7 @@ ae::TimePoint Alice::IntervalSender::Update(ae::TimePoint current_time) {
 
     time_synchronizer_->SetPingSentTime(current_time);
 
-    std::cout << "send \"ping\"" << '\n';
+    std::cout << ae::Format("[{:%H:%M:%S}] Alice sends \"ping\"'\n", ae::Now());
     auto send_action =
         stream_.Write({std::begin(ping_message), std::end(ping_message)});
 
@@ -215,15 +215,17 @@ void Bob::StreamCreated(ae::ByteIStream& stream) {
         auto ping_message =
             std::string_view{reinterpret_cast<char const*>(data_buffer.data()),
                              data_buffer.size()};
-        std::cout << "received " << std::quoted(ping_message) << " within time "
-                  << std::chrono::duration_cast<std::chrono::milliseconds>(
-                         time_synchronizer_->GetPingDuration())
-                         .count()
-                  << " ms\n";
+        std::cout << ae::Format(
+            "[{:%H:%M:%S}] Bob received \"{}\" within time {} ms\n", ae::Now(),
+            ping_message,
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                time_synchronizer_->GetPingDuration())
+                .count());
 
         time_synchronizer_->SetPongSentTime(ae::Now());
         constexpr std::string_view pong_message = "pong";
-        std::cout << "send \"pong\"" << '\n';
+        std::cout << ae::Format("[{:%H:%M:%S}] Bob sends \"pong\"\n",
+                                ae::Now());
         stream.Write({std::begin(pong_message), std::end(pong_message)});
       });
 }

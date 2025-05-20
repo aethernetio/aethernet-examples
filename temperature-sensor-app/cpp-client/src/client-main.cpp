@@ -32,7 +32,6 @@ int client_main(ae::AetherAppConstructor&& aether_app_constructor) {
   ae::EventSubscriber{client_registered}.Subscribe([&](auto client) {
     aether_app->domain().SaveRoot(aether_app->aether());
     sensor = ae::make_unique<Sensor>(aether_app->aether(), client, app_id);
-    client->client_connection()->SendTelemetry();
   });
 
   // get client
