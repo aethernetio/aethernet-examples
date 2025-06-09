@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "aether/aether.h"
+#include "aether/all.h"
 
 #include "sensor_api.h"
 
@@ -23,7 +23,7 @@ class Sensor {
    public:
     SensorReader(ae::ActionContext action_context, ae::Duration interval);
 
-    ae::TimePoint Update(ae::TimePoint current_time) override;
+    ae::ActionResult Update(ae::TimePoint current_time);
 
     ae::EventSubscriber<void(float)> value_changed_event();
 

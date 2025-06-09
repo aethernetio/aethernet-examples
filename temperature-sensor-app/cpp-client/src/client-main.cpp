@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "aether/aether_app.h"
+#include "aether/all.h"
 
 #include "sensor.h"
 
