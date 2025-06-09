@@ -17,16 +17,7 @@
 #include <iostream>
 #include <string_view>
 
-#include "aether/uid.h"
-#include "aether/aether.h"
-#include "aether/client.h"
-#include "aether/format/format.h"
-#include "aether/state_machine.h"
-#include "aether/actions/action.h"
-#include "aether/events/multi_subscription.h"
-#include "aether/client_messages/p2p_safe_message_stream.h"
-
-#include "aether/aether_app.h"
+#include "aether/all.h"
 
 static constexpr auto kParentUid =
     ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4");
@@ -47,7 +38,7 @@ class ClientRegister : public ae::Action<ClientRegister> {
  public:
   explicit ClientRegister(ae::AetherApp& aether_app);
 
-  ae::TimePoint Update(ae::TimePoint current_time) override;
+  ae::ActionResult Update();
 
   std::pair<ae::Client::ptr, ae::Client::ptr> get_clients() const {
     return std::make_pair(alice_, bob_);
@@ -86,7 +77,7 @@ class Alice {
                    TimeSynchronizer& time_synchronizer, ae::ByteIStream& stream,
                    ae::Duration interval);
 
-    ae::TimePoint Update(ae::TimePoint current_time) override;
+    ae::ActionResult Update();
 
    private:
     void ResponseReceived(ae::DataBuffer const& data_buffer);
@@ -166,21 +157,19 @@ ClientRegister::ClientRegister(ae::AetherApp& aether_app)
       aether_{aether_app.aether()},
       state_{State::kRegistration} {}
 
-ae::TimePoint ClientRegister::Update(ae::TimePoint current_time) {
+ae::ActionResult ClientRegister::Update() {
   if (state_.changed()) {
     switch (state_.Acquire()) {
       case State::kRegistration:
         AliceAndBobRegister();
         break;
       case State::kDone:
-        ae::Action<ClientRegister>::Result(*this);
-        return current_time;
+        return ae::ActionResult::Result();
       case State::kError:
-        ae::Action<ClientRegister>::Error(*this);
-        return current_time;
+        return ae::ActionResult::Error();
     }
   }
-  return current_time;
+  return {};
 }
 
 void ClientRegister::AliceAndBobRegister() {
@@ -252,7 +241,8 @@ Alice::IntervalSender::IntervalSender(ae::ActionContext action_context,
       response_subscription_{stream.out_data_event().Subscribe(
           *this, ae::MethodPtr<&IntervalSender::ResponseReceived>{})} {}
 
-ae::TimePoint Alice::IntervalSender::Update(ae::TimePoint current_time) {
+ae::ActionResult Alice::IntervalSender::Update() {
+  auto current_time = ae::Now();
   if (sent_time_ + interval_ <= current_time) {
     constexpr std::string_view ping_message = "ping";
 
@@ -272,7 +262,7 @@ ae::TimePoint Alice::IntervalSender::Update(ae::TimePoint current_time) {
     sent_time_ = current_time;
   }
 
-  return sent_time_ + interval_;
+  return ae::ActionResult::Delay(sent_time_ + interval_);
 }
 
 void Alice::IntervalSender::ResponseReceived(
