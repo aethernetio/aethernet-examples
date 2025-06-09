@@ -20,8 +20,7 @@
 #  include <esp_task_wdt.h>
 #endif
 
-#include "aether/aether_app.h"
-#include "aether/adapters/esp32_wifi.h"
+#include "aether/all.h"
 
 extern int client_main(ae::AetherAppConstructor&& aether_app_constructor);
 

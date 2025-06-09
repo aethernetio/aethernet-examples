@@ -29,12 +29,12 @@ Sensor::SensorReader::SensorReader(ae::ActionContext action_context,
       interval_{interval},
       old_value_{15.0F} {}
 
-ae::TimePoint Sensor::SensorReader::Update(ae::TimePoint current_time) {
+ae::ActionResult Sensor::SensorReader::Update(ae::TimePoint current_time) {
   if ((current_time - last_read_) >= interval_) {
     last_read_ = current_time;
     Read();
   }
-  return last_read_ + interval_;
+  return ae::ActionResult::Delay(last_read_ + interval_);
 }
 
 ae::EventSubscriber<void(float)> Sensor::SensorReader::value_changed_event() {
@@ -61,9 +61,9 @@ Sensor::Sensor(ae::Aether::ptr const& aether, ae::Client::ptr client,
     : client_{std::move(client)},
       application_uid_{application_uid},
       sensor_api_{protocol_context_},
-      sensor_reader_{*aether->action_processor, std::chrono::seconds{10}},
-      send_stream_{ae::make_unique<ae::P2pStream>(*aether->action_processor,
-                                                  client_, application_uid_)},
+      sensor_reader_{*aether, std::chrono::seconds{10}},
+      send_stream_{
+          ae::make_unique<ae::P2pStream>(*aether, client_, application_uid_)},
       value_changed_sub_{sensor_reader_.value_changed_event().Subscribe(
           *this, ae::MethodPtr<&Sensor::OnValueChanged>{})} {}
 
