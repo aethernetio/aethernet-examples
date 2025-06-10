@@ -139,7 +139,8 @@ Alice::IntervalSender::IntervalSender(ae::ActionContext action_context,
       response_subscription_{stream.out_data_event().Subscribe(
           *this, ae::MethodPtr<&IntervalSender::ResponseReceived>{})} {}
 
-ae::TimePoint Alice::IntervalSender::Update(ae::TimePoint current_time) {
+ae::ActionResult Alice::IntervalSender::Update() {
+  auto current_time = ae::Now();
   if (sent_time_ + interval_ <= current_time) {
     constexpr std::string_view ping_message = "ping";
 
@@ -159,7 +160,7 @@ ae::TimePoint Alice::IntervalSender::Update(ae::TimePoint current_time) {
     sent_time_ = current_time;
   }
 
-  return sent_time_ + interval_;
+  return ae::ActionResult::Delay(sent_time_ + interval_);
 }
 ```
 
