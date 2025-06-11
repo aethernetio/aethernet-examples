@@ -17,6 +17,8 @@ cmake_minimum_required(VERSION 3.16)
 
 list(APPEND src_list ../preregistered.cpp)
 
+set(AE_DISTILLATION Off)
+
 # custom user config
 set(USER_CONFIG ${CMAKE_CURRENT_LIST_DIR}/../user_config.h CACHE PATH "" FORCE)
 # preregistered saved state

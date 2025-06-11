@@ -26,25 +26,14 @@ int client_main(ae::AetherAppConstructor&& aether_app_constructor) {
   auto aether_app = ae::AetherApp::Construct(std::move(aether_app_constructor));
 
   std::unique_ptr<Sensor> sensor;
-  auto app_id = ae::Uid::FromString(APP_ID);
+  constexpr auto app_id = ae::Uid::FromString(APP_ID);
 
-  ae::Event<void(ae::Client::ptr client)> client_registered;
-  ae::EventSubscriber{client_registered}.Subscribe([&](auto client) {
+  auto select_client = aether_app->aether()->SelectClient(app_id, 0);
+  select_client->ResultEvent().Subscribe([&](auto& action) {
     aether_app->domain().SaveRoot(aether_app->aether());
-    sensor = ae::make_unique<Sensor>(aether_app->aether(), client, app_id);
+    sensor = ae::make_unique<Sensor>(aether_app->aether(),
+                                     std::move(action.client()), app_id);
   });
-
-  // get client
-  if (!aether_app->aether()->clients().empty()) {
-    // from saved state
-    client_registered.Emit(aether_app->aether()->clients()[0]);
-  } else {
-    // register new one
-    auto reg_action = aether_app->aether()->RegisterClient(app_id);
-    reg_action->ResultEvent().Subscribe([&](auto const& reg_action) {
-      client_registered.Emit(reg_action.client());
-    });
-  }
 
   while (!aether_app->IsExited()) {
     auto next_time = aether_app->Update(ae::Now());

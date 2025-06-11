@@ -32,28 +32,6 @@ constexpr ae::SafeStreamConfig kSafeStreamConfig{
     std::chrono::milliseconds{400},  // send_repeat_timeout
 };
 
-class ClientRegister : public ae::Action<ClientRegister> {
-  enum class State : std::uint8_t { kRegistration, kDone, kError };
-
- public:
-  explicit ClientRegister(ae::AetherApp& aether_app);
-
-  ae::ActionResult Update();
-
-  std::pair<ae::Client::ptr, ae::Client::ptr> get_clients() const {
-    return std::make_pair(alice_, bob_);
-  }
-
- private:
-  void AliceAndBobRegister();
-
-  ae::Aether::ptr aether_;
-  ae::MultiSubscription register_subscriptions_;
-  ae::Client::ptr alice_;
-  ae::Client::ptr bob_;
-  ae::StateMachine<State> state_;
-};
-
 class TimeSynchronizer {
  public:
   TimeSynchronizer() = default;
@@ -128,11 +106,18 @@ int main() {
   std::unique_ptr<Bob> bob;
   TimeSynchronizer time_synchronizer;
 
-  auto client_register_action = ClientRegister{*aether_app};
+  // register or load clients
+  auto alice_client = aether_app->aether()->SelectClient(kParentUid, 0);
+  auto bob_client = aether_app->aether()->SelectClient(kParentUid, 1);
+
+  auto wait_clients = ae::CumulativeEvent{
+      [](auto& action) { return std::move(action.client()); },
+      alice_client->ResultEvent(), bob_client->ResultEvent()};
 
   // Create a subscription to the Result event
-  client_register_action.ResultEvent().Subscribe([&](auto const& action) {
-    auto [client_alice, client_bob] = action.get_clients();
+  wait_clients.Subscribe([&](auto const& event) {
+    auto client_alice = event[0];
+    auto client_bob = event[1];
     alice = ae::make_unique<Alice>(*aether_app, std::move(client_alice),
                                    time_synchronizer, client_bob->uid());
     bob = ae::make_unique<Bob>(*aether_app, std::move(client_bob),
@@ -142,64 +127,15 @@ int main() {
   });
 
   // Subscription to the Error event
-  client_register_action.ErrorEvent().Subscribe(
-      [&](auto const&) { aether_app->Exit(1); });
+  auto fail_clients =
+      ae::CumulativeEvent{alice_client->ErrorEvent(), bob_client->ErrorEvent()};
+  fail_clients.Subscribe([&]() { aether_app->Exit(1); });
 
   while (!aether_app->IsExited()) {
     auto next_time = aether_app->Update(ae::Now());
     aether_app->WaitUntil(next_time);
   }
   return aether_app->ExitCode();
-}
-
-ClientRegister::ClientRegister(ae::AetherApp& aether_app)
-    : ae::Action<ClientRegister>{aether_app},
-      aether_{aether_app.aether()},
-      state_{State::kRegistration} {}
-
-ae::ActionResult ClientRegister::Update() {
-  if (state_.changed()) {
-    switch (state_.Acquire()) {
-      case State::kRegistration:
-        AliceAndBobRegister();
-        break;
-      case State::kDone:
-        return ae::ActionResult::Result();
-      case State::kError:
-        return ae::ActionResult::Error();
-    }
-  }
-  return {};
-}
-
-void ClientRegister::AliceAndBobRegister() {
-  if (aether_->clients().size() == 2) {
-    alice_ = aether_->clients()[0];
-    bob_ = aether_->clients()[1];
-    AE_TELED_INFO("Used already registered clients");
-    state_ = State::kDone;
-    return;
-  }
-  aether_->clients().clear();
-  auto alice_register = aether_->RegisterClient(kParentUid);
-  auto bob_register = aether_->RegisterClient(kParentUid);
-  register_subscriptions_.Push(
-      alice_register->ResultEvent().Subscribe([&](auto const& action) {
-        alice_ = action.client();
-        if (bob_) {
-          state_ = State::kDone;
-        }
-      }),
-      bob_register->ResultEvent().Subscribe([&](auto const& action) {
-        bob_ = action.client();
-        if (alice_) {
-          state_ = State::kDone;
-        }
-      }),
-      alice_register->ErrorEvent().Subscribe(
-          [&](auto const&) { state_ = State::kError; }),
-      bob_register->ErrorEvent().Subscribe(
-          [&](auto const&) { state_ = State::kError; }));
 }
 
 void TimeSynchronizer::SetPingSentTime(ae::TimePoint ping_sent_time) {

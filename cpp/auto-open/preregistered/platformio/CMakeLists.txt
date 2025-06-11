@@ -29,6 +29,8 @@ idf_build_set_property(CM_PLATFORM "ESP32")
 
 add_compile_definitions(CM_ESP32)
 
+set(AE_DISTILLATION Off)
+
 # custom user config
 set(USER_CONFIG ${CMAKE_CURRENT_LIST_DIR}/../user_config.h CACHE PATH "" FORCE)
 # preregistered saved state

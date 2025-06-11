@@ -197,7 +197,10 @@ class ProjectOpener:
     elif self._platform == 'esp-idf':
       self._ide = 'VSCodeWorkspace'
     else:
-      self._ide = ide.lower()
+      if not ide:
+        self._ide = 'vscode'
+      else:
+        self._ide = ide.lower()
 
     self._ide_runner = None
     if self._ide == 'arduino':

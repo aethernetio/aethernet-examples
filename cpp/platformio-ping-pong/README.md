@@ -47,57 +47,44 @@ This must be an absolute path or a path relative to something listed in the incl
 
 ### Where It All Begins
 ```cpp
-auto aether_app = ae::AetherApp::Construct(
-    ae::AetherAppConstructor{
-#if !AE_SUPPORT_REGISTRATION
-        []() {
-          auto fs =
-              ae::make_unique<ae::FileSystemHeaderFacility>(std::string(""));
-          return fs;
-        }
-#endif  // AE_SUPPORT_REGISTRATION
-    }
-#if defined AE_DISTILLATION
-        .Adapter([](ae::Domain* domain,
-                    ae::Aether::ptr const& aether) -> ae::Adapter::ptr {
-#  if defined ESP32_WIFI_ADAPTER_ENABLED
-          auto adapter = domain->CreateObj<ae::Esp32WifiAdapter>(
-              ae::GlobalId::kEsp32WiFiAdapter, aether, aether->poller,
-              std::string(kWifiSsid), std::string(kWifiPass));
-#  else
-          auto adapter = domain->CreateObj<ae::EthernetAdapter>(
-              ae::GlobalId::kEthernetAdapter, aether, aether->poller);
-#  endif
-          return adapter;
-        })
-#endif
-);
+int main() {
+  auto aether_app = ae::AetherApp::Construct(ae::AetherAppConstructor{});
 
-std::unique_ptr<Alice> alice;
-std::unique_ptr<Bob> bob;
-TimeSynchronizer time_synchronizer;
+  std::unique_ptr<Alice> alice;
+  std::unique_ptr<Bob> bob;
+  TimeSynchronizer time_synchronizer;
 
-auto client_register_action = ClientRegister{*aether_app};
+  // register or load clients
+  auto alice_client = aether_app->aether()->SelectClient(kParentUid, 0);
+  auto bob_client = aether_app->aether()->SelectClient(kParentUid, 1);
 
-// Create subscription to Result event
-client_register_action.ResultEvent().Subscribe([&](auto const& action) {
-  auto [client_alice, client_bob] = action.get_clients();
-  alice = ae::make_unique<Alice>(*aether_app, std::move(client_alice),
-                                time_synchronizer, client_bob->uid());
-  bob = ae::make_unique<Bob>(*aether_app, client_bob, time_synchronizer);
-  // Save current aether state
-  aether_app->domain().SaveRoot(aether_app->aether());
-});
+  auto wait_clients = ae::CumulativeEvent{
+      [](auto& action) { return std::move(action.client()); },
+      alice_client->ResultEvent(), bob_client->ResultEvent()};
 
-// Subscription to Error event
-client_register_action.ErrorEvent().Subscribe(
-    [&](auto const&) { aether_app->Exit(1); });
+  // Create a subscription to the Result event
+  wait_clients.Subscribe([&](auto const& event) {
+    auto client_alice = event[0];
+    auto client_bob = event[1];
+    alice = ae::make_unique<Alice>(*aether_app, std::move(client_alice),
+                                   time_synchronizer, client_bob->uid());
+    bob = ae::make_unique<Bob>(*aether_app, std::move(client_bob),
+                               time_synchronizer);
+    // Save the current aether state
+    aether_app->domain().SaveRoot(aether_app->aether());
+  });
 
-while (!aether_app->IsExited()) {
-  auto next_time = aether_app->Update(ae::Now());
-  aether_app->WaitUntil(next_time);
+  // Subscription to the Error event
+  auto fail_clients =
+      ae::CumulativeEvent{alice_client->ErrorEvent(), bob_client->ErrorEvent()};
+  fail_clients.Subscribe([&]() { aether_app->Exit(1); });
+
+  while (!aether_app->IsExited()) {
+    auto next_time = aether_app->Update(ae::Now());
+    aether_app->WaitUntil(next_time);
+  }
+  return aether_app->ExitCode();
 }
-return aether_app->ExitCode();
 ```
 
 Let's go through this!
@@ -107,7 +94,9 @@ It also includes helper functions like `Update` and `WaitUntil` to easily integr
 
 Define our main characters, *Alice* and *Bob*.
 
-Create an action to register clients in Aethernet — `client_register_action`.
+Select *Alice* and *Bob* clients from `aether`. We can't get them directly,
+because they may be loaded from saved state or registered in Aether - both are asynchronous.
+Thats why `alice_client` and `bob_client` are `SelectClientAction` type.
 An [action](https://aethernet.io/technology#action2) in *aether* is a concept for performing asynchronous operations.
 Each action inherits from `ae::Action<T>` and is registered in the [ActionProcessor](https://aethernet.io/technology#action2) infrastructure.
 It has an `Update` method invoked every loop, where we can manage a state machine or check the status of multithreaded tasks.
