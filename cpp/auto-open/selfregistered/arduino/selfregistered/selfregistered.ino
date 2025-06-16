@@ -106,7 +106,7 @@ void bob_meet_alice(ae::Client::ptr const& alice_client,
 }
 
 void setup() {
-  context->aether_app = ae::AetherApp::Construct(ae::AetherAppConstructor{
+  context->aether_app = ae::AetherApp::Construct(ae::AetherAppContext{
       []() {
         return ae::make_unique<ae::FileSystemRamFacility>();
       }}.Adapter([](ae::Domain* domain, ae::Aether::ptr const& aether) {

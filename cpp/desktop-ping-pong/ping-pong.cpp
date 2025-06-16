@@ -100,7 +100,7 @@ class Bob {
 };
 
 int main() {
-  auto aether_app = ae::AetherApp::Construct(ae::AetherAppConstructor{});
+  auto aether_app = ae::AetherApp::Construct(ae::AetherAppContext{});
 
   std::unique_ptr<Alice> alice;
   std::unique_ptr<Bob> bob;

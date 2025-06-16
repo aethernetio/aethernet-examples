@@ -52,7 +52,7 @@ struct TestContext {
 static TestContext* context{};
 
 void setup() {
-  context->aether_app = ae::AetherApp::Construct(ae::AetherAppConstructor{});
+  context->aether_app = ae::AetherApp::Construct(ae::AetherAppContext{});
 
   auto alice_selector = context->aether_app->aether()->SelectClient(
       ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4"), 0);

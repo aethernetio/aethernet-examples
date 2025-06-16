@@ -22,8 +22,8 @@
 #  error APP_ID must be defined
 #endif
 
-int client_main(ae::AetherAppConstructor&& aether_app_constructor) {
-  auto aether_app = ae::AetherApp::Construct(std::move(aether_app_constructor));
+int client_main(ae::AetherAppContext&& aether_app_context) {
+  auto aether_app = ae::AetherApp::Construct(std::move(aether_app_context));
 
   std::unique_ptr<Sensor> sensor;
   constexpr auto app_id = ae::Uid::FromString(APP_ID);

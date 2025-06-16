@@ -44,7 +44,7 @@ struct TestContext {
 static TestContext* context{};
 
 void setup() {
-  context->aether_app = ae::AetherApp::Construct(ae::AetherAppConstructor{[]() {
+  context->aether_app = ae::AetherApp::Construct(ae::AetherAppContext{[]() {
     // TODO: return normal file system
     return ae::make_unique<ae::FileSystemHeaderFacility>(std::string(""));
   }});
