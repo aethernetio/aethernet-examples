@@ -47,10 +47,6 @@ class BaseRunner:
 
     self.clone(repo_lib_dir, repo_url)
 
-  def apply_patches(self, repo_dir):
-    init_script_command = self.get_init_script_command()
-    subprocess.run(init_script_command, cwd=repo_dir, check=True)
-
   def cmake_config(self, project_dir:str, build_dir:str, *cmake_opts):
     if not os.path.exists(build_dir):
       os.makedirs(build_dir)
@@ -73,9 +69,6 @@ class BaseRunner:
   def get_arduino_lib_dir(self) -> str:
     return ""
 
-  def get_init_script_command(self) ->list:
-    return []
-
   def get_cmake_cmd(self, *args) -> list:
     cmd = ['cmake', *args]
     return cmd
@@ -93,9 +86,6 @@ class LinuxRunner(BaseRunner):
   def get_arduino_lib_dir(self):
     return os.path.expanduser("~/Arduino/libraries")
 
-  def get_init_script_command(self) -> list:
-    return ['bash', '-c', './git_init.sh']
-
 class WindowsRunner(BaseRunner):
   def run_arduino_ide(self, sketch_path) -> subprocess.Popen:
     arduino_path = os.path.expanduser("~/AppData/Local/Programs/arduino-ide/Arduino IDE.exe")
@@ -110,9 +100,6 @@ class WindowsRunner(BaseRunner):
   def get_arduino_lib_dir(self):
     return os.path.expanduser("~/Documents/Arduino/libraries")
 
-  def get_init_script_command(self) -> list:
-    return ['cmd.exe', '/c', '.\\git_init.bat']
-
   def get_cmake_binary_dir(self, build_dir:str) -> str:
     return os.path.join(build_dir, 'Release')
 
@@ -125,9 +112,6 @@ class MacosRunner(BaseRunner):
 
   def get_arduino_lib_dir(self):
     return os.path.expanduser("~/Documents/Arduino/libraries")
-
-  def get_init_script_command(self) -> list:
-    return ['bash', '-c', './git_init.sh']
 
 class IdeRunner:
   def run(self, project_dir:str, platform:str):
@@ -228,7 +212,6 @@ class ProjectOpener:
 
     def clone_aether_client_cpp():
       self._runner.clone('aether-client-cpp', repo_urls['Aether'])
-      self._runner.apply_patches('aether-client-cpp')
 
     if self._platform == 'arduino':
       self._runner.install_arduino_lib('Aether', repo_urls['Arduino'])
