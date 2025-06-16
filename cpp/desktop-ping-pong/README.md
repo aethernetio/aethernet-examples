@@ -52,21 +52,30 @@ int main() {
   std::unique_ptr<Bob> bob;
   TimeSynchronizer time_synchronizer;
 
-  auto client_register_action = ClientRegister{*aether_app};
+  // register or load clients
+  auto alice_client = aether_app->aether()->SelectClient(kParentUid, 0);
+  auto bob_client = aether_app->aether()->SelectClient(kParentUid, 1);
+
+  auto wait_clients = ae::CumulativeEvent{
+      [](auto& action) { return std::move(action.client()); },
+      alice_client->ResultEvent(), bob_client->ResultEvent()};
 
   // Create a subscription to the Result event
-  client_register_action.ResultEvent().Subscribe([&](auto const& action) {
-    auto [client_alice, client_bob] = action.get_clients();
+  wait_clients.Subscribe([&](auto const& event) {
+    auto client_alice = event[0];
+    auto client_bob = event[1];
     alice = ae::make_unique<Alice>(*aether_app, std::move(client_alice),
                                    time_synchronizer, client_bob->uid());
-    bob = ae::make_unique<Bob>(*aether_app, client_bob, time_synchronizer);
+    bob = ae::make_unique<Bob>(*aether_app, std::move(client_bob),
+                               time_synchronizer);
     // Save the current aether state
     aether_app->domain().SaveRoot(aether_app->aether());
   });
 
   // Subscription to the Error event
-  client_register_action.ErrorEvent().Subscribe(
-      [&](auto const&) { aether_app->Exit(1); });
+  auto fail_clients =
+      ae::CumulativeEvent{alice_client->ErrorEvent(), bob_client->ErrorEvent()};
+  fail_clients.Subscribe([&]() { aether_app->Exit(1); });
 
   while (!aether_app->IsExited()) {
     auto next_time = aether_app->Update(ae::Now());
@@ -83,7 +92,9 @@ It also includes helper functions like `Update` and `WaitUntil` to easily integr
 
 Define our main characters, *Alice* and *Bob*.
 
-Create an action to register clients in Aethernet — `client_register_action`.
+Select *Alice* and *Bob* clients from `aether`. We can't get them directly,
+because they may be loaded from saved state or registered in Aether - both are asynchronous.
+Thats why `alice_client` and `bob_client` are `SelectClientAction` type.
 An [action](https://aethernet.io/technology#action2) in *aether* is a concept for performing asynchronous operations.
 Each action inherits from `ae::Action<T>` and is registered in the [ActionProcessor](https://aethernet.io/technology#action2) infrastructure.
 It has an `Update` method invoked every loop, where we can manage a state machine or check the status of multithreaded tasks.
