@@ -42,10 +42,9 @@ constexpr ae::SafeStreamConfig kSafeStreamConfig{
 };
 
 struct TestContext {
-  ae::Ptr<ae::AetherApp> aether_app;
+  ae::RcPtr<ae::AetherApp> aether_app;
   int send_success = 0;
   bool greeting_success = false;
-  ae::CumulativeEvent<ae::Client::ptr, 2> clients_registered_event;
   std::unique_ptr<ae::ByteIStream> bob_stream;
   std::unique_ptr<ae::ByteIStream> alice_stream;
   std::unique_ptr<ae::TimerAction> timer;
@@ -100,41 +99,45 @@ void BobMeetAlice(ae::Client::ptr const& alice_client,
 }
 
 void setup() {
-  context->aether_app = ae::AetherApp::Construct(ae::AetherAppContext{
-      []() {
+  context->aether_app = ae::AetherApp::Construct(
+      ae::AetherAppContext{[]() {
         return ae::make_unique<ae::RamDomainStorage>();
-      }}.Adapter([](ae::Domain* domain, ae::Aether::ptr const& aether) {
+      }}.AdapterFactory([](ae::AetherAppContext const& context) {
 #if defined ESP32_WIFI_ADAPTER_ENABLED
-    return domain->CreateObj<ae::Esp32WifiAdapter>(
-        aether, aether->poller, std::string{kWifiSsid}, std::string{kWifiPass});
+        return context.domain().CreateObj<ae::Esp32WifiAdapter>(
+            context.aether(), context.poller(), std::string{kWifiSsid},
+            std::string{kWifiPass});
 #else
-    return domain->CreateObj<ae::EthernetAdapter>(aether, aether->poller);
+        return context.domain().CreateObj<ae::EthernetAdapter>(
+            context.aether(), context.poller());
 #endif
-  }));
+      }));
 
+  ae::Client::ptr alice_client;
+  ae::Client::ptr bob_client;
   auto alice_selector = context->aether_app->aether()->SelectClient(
       ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4"), 0);
+
+  alice_selector->ResultEvent().Subscribe(
+      [&](auto const& action) { alice_client = action.client(); });
+  alice_selector->ErrorEvent().Subscribe([&](auto const&) {
+    std::cerr << "Alice selection failed" << std::endl;
+    context->aether_app->Exit(1);
+  });
+  context->aether_app->WaitAction(alice_selector);
+
   auto bob_selector = context->aether_app->aether()->SelectClient(
       ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4"), 1);
-
-  context->clients_registered_event.Connect(
-      [](auto& action) { return action.client(); },
-      alice_selector->ResultEvent(), bob_selector->ResultEvent());
-
-  alice_selector->ErrorEvent().Subscribe([&](auto const&) {
-    std::cerr << "Alice register failed" << std::endl;
-    context->aether_app->Exit(1);
-  });
-
+  bob_selector->ResultEvent().Subscribe(
+      [&](auto const& action) { bob_client = action.client(); });
   bob_selector->ErrorEvent().Subscribe([&](auto const&) {
-    std::cerr << "Bob register failed" << std::endl;
+    std::cerr << "Bob selection failed" << std::endl;
     context->aether_app->Exit(1);
   });
 
-  context->clients_registered_event.Subscribe([&](auto const& event) {
-    std::cerr << "Bob meet alice" << std::endl;
-    BobMeetAlice(event[0], event[1]);
-  });
+  context->aether_app->WaitAction(bob_selector);
+
+  BobMeetAlice(alice_client, bob_client);
 
   context->timer = ae::make_unique<ae::TimerAction>(
       *context->aether_app->aether()->action_processor,
