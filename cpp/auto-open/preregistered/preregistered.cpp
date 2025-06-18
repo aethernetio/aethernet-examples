@@ -17,7 +17,6 @@
 #include <limits>
 #include <chrono>
 #include <cstdint>
-#include <cstdlib>
 #include <iostream>
 #include <string_view>
 
@@ -40,10 +39,9 @@ constexpr ae::SafeStreamConfig kSafeStreamConfig{
 };
 
 struct TestContext {
-  ae::Ptr<ae::AetherApp> aether_app;
+  ae::RcPtr<ae::AetherApp> aether_app;
   int send_success = 0;
   bool greeting_success = false;
-  ae::CumulativeEvent<ae::Client::ptr, 2> clients_selected;
   std::unique_ptr<ae::ByteIStream> bob_stream;
   std::unique_ptr<ae::ByteIStream> alice_stream;
   std::unique_ptr<ae::TimerAction> timer;
@@ -52,61 +50,63 @@ struct TestContext {
 static TestContext* context{};
 
 void setup() {
-  context->aether_app = ae::AetherApp::Construct(ae::AetherAppConstructor{});
+  context->aether_app = ae::AetherApp::Construct(ae::AetherAppContext{});
+
+  ae::Client::ptr alice_client;
+  ae::Client::ptr bob_client;
 
   auto alice_selector = context->aether_app->aether()->SelectClient(
       ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4"), 0);
+  alice_selector->ResultEvent().Subscribe(
+      [&](auto const& action) { alice_client = action.client(); });
+
+  context->aether_app->WaitAction(alice_selector);
+
   auto bob_selector = context->aether_app->aether()->SelectClient(
       ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4"), 1);
+  bob_selector->ResultEvent().Subscribe(
+      [&](auto const& action) { bob_client = action.client(); });
+  context->aether_app->WaitAction(bob_selector);
 
-  context->clients_selected.Connect(
-      [](auto& action) { return action.client(); },
-      alice_selector->ResultEvent(), bob_selector->ResultEvent());
+  context->bob_stream = ae::make_unique<ae::P2pSafeStream>(
+      *context->aether_app, kSafeStreamConfig,
+      ae::make_unique<ae::P2pStream>(*context->aether_app, bob_client,
+                                     alice_client->uid()));
+  auto bob_say = std::string_view{"Hello"};
+  auto bob_send_message =
+      context->bob_stream->Write({std::begin(bob_say), std::end(bob_say)});
 
-  context->clients_selected.Subscribe([&](auto const& event) {
-    auto alice_client = event[0];
-    auto bob_client = event[1];
+  bob_send_message->ResultEvent().Subscribe(
+      [&](auto const&) { context->send_success += 1; });
+  bob_send_message->ErrorEvent().Subscribe([&](auto const&) {
+    std::cerr << "Send error" << std::endl;
+    context->aether_app->Exit(1);
+  });
 
-    context->bob_stream = ae::make_unique<ae::P2pSafeStream>(
-        *context->aether_app, kSafeStreamConfig,
-        ae::make_unique<ae::P2pStream>(*context->aether_app, bob_client,
-                                       alice_client->uid()));
-    auto bob_say = std::string_view{"Hello"};
-    auto bob_send_message =
-        context->bob_stream->Write({std::begin(bob_say), std::end(bob_say)});
+  context->bob_stream->out_data_event().Subscribe([&](auto const& data) {
+    auto str = std::string_view{reinterpret_cast<char const*>(data.data()),
+                                data.size()};
+    std::cout << "Bob received " << str << std::endl;
+    context->greeting_success = true;
+  });
 
-    bob_send_message->ResultEvent().Subscribe(
+  context->alice_stream = ae::make_unique<ae::P2pSafeStream>(
+      *context->aether_app, kSafeStreamConfig,
+      ae::make_unique<ae::P2pStream>(*context->aether_app, alice_client,
+                                     bob_client->uid()));
+
+  context->alice_stream->out_data_event().Subscribe([&](auto const& data) {
+    auto str = std::string_view{reinterpret_cast<char const*>(data.data()),
+                                data.size()};
+    std::cout << "Alice received " << str << std::endl;
+    auto answear = std::string_view{"Hi"};
+    auto alice_send_message =
+        context->alice_stream->Write({std::begin(answear), std::end(answear)});
+    alice_send_message->ResultEvent().Subscribe(
         [&](auto const&) { context->send_success += 1; });
-    bob_send_message->ErrorEvent().Subscribe([&](auto const&) {
-      std::cerr << "Send error" << std::endl;
-      context->aether_app->Exit(1);
-    });
-
-    context->bob_stream->out_data_event().Subscribe([&](auto const& data) {
-      auto str = std::string_view{reinterpret_cast<char const*>(data.data()),
-                                  data.size()};
-      std::cout << "Bob received " << str << std::endl;
-      context->greeting_success = true;
-    });
-
-    context->alice_stream = ae::make_unique<ae::P2pSafeStream>(
-        *context->aether_app, kSafeStreamConfig,
-        ae::make_unique<ae::P2pStream>(*context->aether_app, alice_client,
-                                       bob_client->uid()));
-
-    context->alice_stream->out_data_event().Subscribe([&](auto const& data) {
-      auto str = std::string_view{reinterpret_cast<char const*>(data.data()),
-                                  data.size()};
-      std::cout << "Alice received " << str << std::endl;
-      auto answear = std::string_view{"Hi"};
-      auto alice_send_message = context->alice_stream->Write(
-          {std::begin(answear), std::end(answear)});
-      alice_send_message->ResultEvent().Subscribe(
-          [&](auto const&) { context->send_success += 1; });
-      alice_send_message->ErrorEvent().Subscribe([&](auto const&) {
-        std::cerr << "Send answer error" << std::endl;
-        context->aether_app->Exit(2);
-      });
+    alice_send_message->ErrorEvent().Subscribe([&](auto const&) {
+      std::cerr << "Send answer error" << std::endl;
+      context->aether_app->Exit(2);
     });
   });
 

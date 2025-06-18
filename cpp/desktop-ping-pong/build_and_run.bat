@@ -23,9 +23,6 @@ set UTM_ID=0
 :StartBuild
 
 git submodule update --init --remote aether-client-cpp
-cd aether-client-cpp
-call git_init.bat
-cd ..
 mkdir build-example
 cd build-example
 cmake -DUTM_ID=%UTM_ID% ..

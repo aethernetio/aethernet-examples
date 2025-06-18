@@ -46,7 +46,7 @@ This must be an absolute path or a path relative to something listed in the incl
 ### Where It All Begins
 ```cpp
 int main() {
-  auto aether_app = ae::AetherApp::Construct(ae::AetherAppConstructor{});
+  auto aether_app = ae::AetherApp::Construct(ae::AetherAppContext{});
 
   std::unique_ptr<Alice> alice;
   std::unique_ptr<Bob> bob;

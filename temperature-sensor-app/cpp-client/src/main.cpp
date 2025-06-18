@@ -22,7 +22,7 @@
 
 #include "aether/all.h"
 
-extern int client_main(ae::AetherAppConstructor&& aether_app_constructor);
+extern int client_main(ae::AetherAppContext&& aether_app_context);
 
 #if defined ESP_PLATFORM
 extern "C" void app_main();
@@ -38,16 +38,15 @@ void app_main(void) {
   }
 
   auto res = client_main(
+      ae::AetherAppContext{}
 #  ifdef AE_DISTILLATION
 #    if not defined WIFI_SSID or not defined WIFI_PASS
 #      error "WIFI_SSID and WIFI_PASS should be defined"
 #    endif
-      ae::AetherAppConstructor{}.Adapter([](auto* domain, auto aether) {
-        return domain->CreateObj<Esp32WifiAdapter>(aether, aether->poller,
-                                                   WIFI_SSID, WIFI_PASS);
-      })
-#  else
-      ae::AetherAppConstructor{}
+          .AdapterFactory([](auto const& context) {
+            return context.domain().CreateObj<Esp32WifiAdapter>(
+                context.aether(), context.poller(), WIFI_SSID, WIFI_PASS);
+          })
 #  endif
   );
 
@@ -58,5 +57,5 @@ void app_main(void) {
   std::cout << "Exit normally" << std::endl;
 }
 #else
-int main() { return client_main(ae::AetherAppConstructor{}); }
+int main() { return client_main(ae::AetherAppContext{}); }
 #endif

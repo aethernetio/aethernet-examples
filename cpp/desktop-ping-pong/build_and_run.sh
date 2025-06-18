@@ -21,9 +21,6 @@ NPROC=$(echo "$(nproc 2> /dev/null || sysctl -n hw.logicalcpu 2> /dev/null || 1)
 echo "NRPOC count is ${NPROC}"
 
 git submodule update --init --remote aether-client-cpp
-cd aether-client-cpp
-./git_init.sh
-cd ../
 mkdir build-example
 cd build-example
 cmake -DUTM_ID=${UTM_ID} ..

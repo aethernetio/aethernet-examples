@@ -133,7 +133,7 @@ class Bob {
 
 int AetherPingPongExample() {
   auto aether_app = ae::AetherApp::Construct(
-      ae::AetherAppConstructor{
+      ae::AetherAppContext{
 #if !AE_SUPPORT_REGISTRATION
           []() {
             auto fs =
