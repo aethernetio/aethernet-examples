@@ -37,18 +37,20 @@ void app_main(void) {
     ESP_LOGE("TempSensorClient", "Reconfigure WDT is failed!");
   }
 
-  auto res = client_main(
-      ae::AetherAppContext{}
+  auto res =
+      client_main(ae::AetherAppContext{}
 #  ifdef AE_DISTILLATION
 #    if not defined WIFI_SSID or not defined WIFI_PASS
 #      error "WIFI_SSID and WIFI_PASS should be defined"
 #    endif
-          .AdapterFactory([](auto const& context) {
-            return context.domain().CreateObj<Esp32WifiAdapter>(
-                context.aether(), context.poller(), WIFI_SSID, WIFI_PASS);
-          })
+                      .AdapterFactory([](ae::AetherAppContext const& context) {
+                        return context.domain().CreateObj<ae::Esp32WifiAdapter>(
+                            ae::GlobalId::kEsp32WiFiAdapter, context.aether(),
+                            context.poller(), context.dns_resolver(),
+                            std::string(WIFI_SSID), std::string(WIFI_PASS));
+                      })
 #  endif
-  );
+      );
 
   if (res != 0) {
     std::cerr << "Exit with code " << res << std::endl;

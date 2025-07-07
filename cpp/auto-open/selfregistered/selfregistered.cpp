@@ -99,19 +99,20 @@ void BobMeetAlice(ae::Client::ptr const& alice_client,
 }
 
 void setup() {
-  context->aether_app = ae::AetherApp::Construct(
-      ae::AetherAppContext{[]() {
+  context->aether_app = ae::AetherApp::Construct(ae::AetherAppContext{
+      []() {
         return ae::make_unique<ae::RamDomainStorage>();
       }}.AdapterFactory([](ae::AetherAppContext const& context) {
 #if defined ESP32_WIFI_ADAPTER_ENABLED
-        return context.domain().CreateObj<ae::Esp32WifiAdapter>(
-            context.aether(), context.poller(), std::string{kWifiSsid},
-            std::string{kWifiPass});
+    return context.domain().CreateObj<ae::Esp32WifiAdapter>(
+        ae::GlobalId::kEsp32WiFiAdapter, context.aether(), context.poller(),
+        context.dns_resolver(), std::string(kWifiSsid), std::string(kWifiPass));
 #else
-        return context.domain().CreateObj<ae::EthernetAdapter>(
-            context.aether(), context.poller());
+    return context.domain().CreateObj<ae::EthernetAdapter>(
+        ae::GlobalId::kEthernetAdapter, context.aether(), context.poller(),
+        context.dns_resolver());
 #endif
-      }));
+  }));
 
   ae::Client::ptr alice_client;
   ae::Client::ptr bob_client;
