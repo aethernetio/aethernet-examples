@@ -33,11 +33,6 @@ if (NOT FS_INIT)
   set(FS_INIT "file_system_init.h" CACHE PATH "")
 endif()
 
-# By default, distillation mode is off; turn it on for this example
-if (NOT DEFINED AE_DISTILLATION)
-  set(AE_DISTILLATION On)
-endif()
-
 # add user provided config wich will be included as regular .h file
 # Add a user-provided config file, which will be included as a regular .h file
 set(USER_CONFIG "user_config.h" CACHE PATH "" FORCE)
