@@ -18,11 +18,6 @@ We are using **CMake** for now. Although some consider it an industry standard, 
 The *aether* library requires at least *C++17*, so ensure your project requires it and refer to the following code snippet.
 
 ```cmake
-# By default, distillation mode is off; turn it on for this example
-if (NOT DEFINED AE_DISTILLATION)
-  set(AE_DISTILLATION On)
-endif()
-
 # Add a user-provided config file, which will be included as a regular .h file
 set(USER_CONFIG user_config.h CACHE PATH "" FORCE)
 # ${USER_CONFIG} must be an absolute path or a path to something listed in include directories
@@ -33,7 +28,7 @@ add_subdirectory(aether-client-cpp/aether aether)
 ```
 
 There are two modes in which *aether* operates: [distillation mode](https://aethernet.io/documentation#c++2) and production mode.
-By default, *aether* builds in production mode, but for this example, we set the `AE_DISTILLATION` option to `On` directly in the CMake script.
+By default, *aether* builds in distillation mode, to select production mode set AE_DISTILLATION_MODE option to Off.
 In distillation mode, *aether* configures all its inner objects to default states and saves them to the file system.
 Check the `build/state` directory.
 In production mode, *aether* only loads objects with saved states from `./state`.
@@ -56,12 +51,18 @@ int main() {
   auto alice_client = aether_app->aether()->SelectClient(kParentUid, 0);
   auto bob_client = aether_app->aether()->SelectClient(kParentUid, 1);
 
-  auto wait_clients = ae::CumulativeEvent{
-      [](auto& action) { return std::move(action.client()); },
-      alice_client->ResultEvent(), bob_client->ResultEvent()};
+  auto wait_clients = ae::CumulativeEvent<ae::Client::ptr, 2>{
+      [&](auto event, auto status) {
+        status.OnResult([&](auto& action) { event = action.client(); })
+            .OnError([&]() { aether_app->Exit(1); });
+      },
+      alice_client->StatusEvent(), bob_client->StatusEvent()};
 
   // Create a subscription to the Result event
   wait_clients.Subscribe([&](auto const& event) {
+    if (aether_app->IsExited()) {
+      return;
+    }
     auto client_alice = event[0];
     auto client_bob = event[1];
     alice = ae::make_unique<Alice>(*aether_app, std::move(client_alice),
@@ -71,11 +72,6 @@ int main() {
     // Save the current aether state
     aether_app->domain().SaveRoot(aether_app->aether());
   });
-
-  // Subscription to the Error event
-  auto fail_clients =
-      ae::CumulativeEvent{alice_client->ErrorEvent(), bob_client->ErrorEvent()};
-  fail_clients.Subscribe([&]() { aether_app->Exit(1); });
 
   while (!aether_app->IsExited()) {
     auto next_time = aether_app->Update(ae::Now());
@@ -98,37 +94,63 @@ Thats why `alice_client` and `bob_client` are `SelectClientAction` type.
 An [action](https://aethernet.io/technology#action2) in *aether* is a concept for performing asynchronous operations.
 Each action inherits from `ae::Action<T>` and is registered in the [ActionProcessor](https://aethernet.io/technology#action2) infrastructure.
 It has an `Update` method invoked every loop, where we can manage a state machine or check the status of multithreaded tasks.
-To inform about its state, three [events](https://aethernet.io/documentation#c++2) exist: `Result`, `Error`, and `Stop` — the names speak for themselves.
+To inform about its state, StatusEvent [events](https://aethernet.io/documentation#c++2) exists which inform us about three statuses:
+`Result`, `Error`, and `Stop` — the names speak for themselves.
 
-We subscribe to the `Result` event and obtain clients for *Alice* and *Bob* from the action to initialize our characters and also save the current `aether` state.
-On `Error`, we close the application with exit code 1 as soon as possible.
+We are using `CumulativeEvent` to combine different `StatusEvent`s into one. Successful client selection allows us to obtain client objects for *alice* and *bob*. On any failure, we close the application with exit code 1.
 
 For this example, clients for `Alice` and `Bob` are registered every time the application runs in distillation mode.
 However, in production mode, clients from the saved state are used.
 Reconfigure CMake with `AE_DISTILLATION=Off` (just run `cmake -DAE_DISTILLATION=Off .` in your build directory) and rebuild it.
 The next run will be slightly faster without registration.
 
-[Event subscription](https://aethernet.io/documentation#c++2) is a RAII object that holds a subscription to events and unsubscribes upon destruction.
-
 ### Alice
 ```cpp
 Alice::Alice(ae::AetherApp& aether_app, ae::Client::ptr client_alice,
              TimeSynchronizer& time_synchronizer, ae::Uid bobs_uid)
-    : aether_{aether_app.aether()},
+    : aether_app_{&aether_app},
       client_alice_{std::move(client_alice)},
-      p2pstream_{ae::ActionContext{*aether_->action_processor},
-                 kSafeStreamConfig,
-                 ae::make_unique<ae::P2pStream>(
-                     ae::ActionContext{*aether_->action_processor},
-                     client_alice_, bobs_uid)},
-      interval_sender_{ae::ActionContext{*aether_->action_processor},
-                       time_synchronizer, p2pstream_,
-                       std::chrono::milliseconds{5000}},
-      interval_sender_subscription_{interval_sender_.ErrorEvent().Subscribe(
-          [&](auto const&) { aether_app.Exit(1); })} {}
+      p2pstream_{*aether_app_, kSafeStreamConfig,
+                 ae::make_unique<ae::P2pStream>(*aether_app_, client_alice_,
+                                                bobs_uid)},
+      time_synchronizer_{&time_synchronizer},
+      interval_sender_{*aether_app_, [this]() { SendMessage(); },
+                       std::chrono::milliseconds{5000},
+                       ae::RepeatableTask::kRepeatCountInfinite},
+      receive_data_sub_{p2pstream_.out_data_event().Subscribe(
+          *this, ae::MethodPtr<&Alice::ResponseReceived>{})} {}
+
+void Alice::SendMessage() {
+  auto current_time = ae::Now();
+  constexpr std::string_view ping_message = "ping";
+
+  time_synchronizer_->SetPingSentTime(current_time);
+
+  std::cout << ae::Format("[{:%H:%M:%S}] Alice sends \"ping\"'\n", ae::Now());
+  auto send_action =
+      p2pstream_.Write({std::begin(ping_message), std::end(ping_message)});
+
+  // notify about error
+  send_subs_.Push(
+      send_action->StatusEvent().Subscribe(ae::OnError{[&](auto const&) {
+        std::cerr << "ping send error" << '\n';
+        aether_app_->Exit(1);
+      }}));
+}
+
+void Alice::ResponseReceived(ae::DataBuffer const& data_buffer) {
+  auto pong_message = std::string_view{
+      reinterpret_cast<char const*>(data_buffer.data()), data_buffer.size()};
+  std::cout << ae::Format(
+      "[{:%H:%M:%S}] Alice received \"{}\" within time {} ms\n", ae::Now(),
+      pong_message,
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          time_synchronizer_->GetPongDuration())
+          .count());
+}
 ```
 
-*Alice* saves a pointer to the `aether` object, stores `client_alice`, and creates entities where all the business magic happens.
+*Alice* saves a pointer to the `aether_app` object, stores `client_alice`, and creates entities where all the business magic happens.
 She knows *Bob*'s [`uid`](https://aethernet.io/technology#registering-new-client0) and doesn't mind chatting with him.
 
 Create `p2pstream_`. It's a [`P2pSafeStream`](https://aethernet.io/documentation#c++2),
@@ -136,87 +158,46 @@ where *Safe* means it guarantees or makes every effort to deliver *Alice's* mess
 Think of [streams](https://aethernet.io/documentation#c++2) as tunnels through the internet and Aethernet servers to another client.
 They are full-duplex, so you can send messages through the tunnel and receive responses simultaneously.
 
-*Alice* uses `IntervalSender` — another action — to send her "pings" periodically.
+*Alice* uses `RepeatableTask` — another action — to send her "pings" periodically with specified interval. It runs `SendMessage` every 5 seconds. And `ResponseReceived` will be invoked when new data received through the stream.
 
-```cpp
-Alice::IntervalSender::IntervalSender(ae::ActionContext action_context,
-                                      TimeSynchronizer& time_synchronizer,
-                                      ae::ByteIStream& stream,
-                                      ae::Duration interval)
-    : ae::Action<IntervalSender>{action_context},
-      stream_{stream},
-      time_synchronizer_{&time_synchronizer},
-      interval_{interval},
-      response_subscription_{stream.out_data_event().Subscribe(
-          *this, ae::MethodPtr<&IntervalSender::ResponseReceived>{})} {}
-
-ae::ActionResult Alice::IntervalSender::Update() {
-  auto current_time = ae::Now();
-  if (sent_time_ + interval_ <= current_time) {
-    constexpr std::string_view ping_message = "ping";
-
-    time_synchronizer_->SetPingSentTime(current_time);
-
-    std::cout << ae::Format("[{:%H:%M:%S}] Alice sends \"ping\"'\n", ae::Now());
-    auto send_action =
-        stream_.Write({std::begin(ping_message), std::end(ping_message)});
-
-    // notify about error
-    send_subscriptions_.Push(
-        send_action->ErrorEvent().Subscribe([&](auto const&) {
-          std::cerr << "ping send error" << '\n';
-          ae::Action<IntervalSender>::Error(*this);
-        }));
-
-    sent_time_ = current_time;
-  }
-
-  return ae::ActionResult::Delay(sent_time_ + interval_);
-}
-```
-
-`IntervalSender` waits for `interval_` time from the last `sent_time_` and sends a new "ping" then. It is also subscribed to response messages.
+To properly manage event subscriptions life time *Alice* uses `ae::Subscription`.
+[Event subscription](https://aethernet.io/documentation#c++2) is a RAII object that holds a subscription to events and unsubscribes upon destruction.
 
 ### Bob
 ```cpp
 Bob::Bob(ae::AetherApp& aether_app, ae::Client::ptr client_bob,
          TimeSynchronizer& time_synchronizer)
-    : aether_{aether_app.aether()},
+    : aether_app_{&aether_app},
       client_bob_{std::move(client_bob)},
       time_synchronizer_{&time_synchronizer},
-      new_stream_receive_subscription_{
+      new_stream_receive_sub_{
           client_bob_->client_connection()->new_stream_event().Subscribe(
               *this, ae::MethodPtr<&Bob::OnNewStream>{})} {}
 
 void Bob::OnNewStream(ae::Uid destination_uid,
                       std::unique_ptr<ae::ByteIStream> message_stream) {
   p2pstream_ = ae::make_unique<ae::P2pSafeStream>(
-      ae::ActionContext{*aether_->action_processor}, kSafeStreamConfig,
-      ae::make_unique<ae::P2pStream>(
-          ae::ActionContext{*aether_->action_processor}, client_bob_,
-          destination_uid, std::move(message_stream)));
-  StreamCreated(*p2pstream_);
+      *aether_app_, kSafeStreamConfig,
+      ae::make_unique<ae::P2pStream>(*aether_app_, client_bob_, destination_uid,
+                                     std::move(message_stream)));
+  message_receive_sub_ = p2pstream_->out_data_event().Subscribe(
+      *this, ae::MethodPtr<&Bob::OnMessageReceived>{});
 }
 
-void Bob::StreamCreated(ae::ByteIStream& stream) {
-  message_receive_subscription_ =
-      stream.out_data_event().Subscribe([&](auto const& data_buffer) {
-        auto ping_message =
-            std::string_view{reinterpret_cast<char const*>(data_buffer.data()),
-                             data_buffer.size()};
-        std::cout << ae::Format(
-            "[{:%H:%M:%S}] Bob received \"{}\" within time {} ms\n", ae::Now(),
-            ping_message,
-            std::chrono::duration_cast<std::chrono::milliseconds>(
-                time_synchronizer_->GetPingDuration())
-                .count());
+void Bob::OnMessageReceived(ae::DataBuffer const& data_buffer) {
+  auto ping_message = std::string_view{
+      reinterpret_cast<char const*>(data_buffer.data()), data_buffer.size()};
+  std::cout << ae::Format(
+      "[{:%H:%M:%S}] Bob received \"{}\" within time {} ms\n", ae::Now(),
+      ping_message,
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          time_synchronizer_->GetPingDuration())
+          .count());
 
-        time_synchronizer_->SetPongSentTime(ae::Now());
-        constexpr std::string_view pong_message = "pong";
-        std::cout << ae::Format("[{:%H:%M:%S}] Bob sends \"pong\"\n",
-                                ae::Now());
-        stream.Write({std::begin(pong_message), std::end(pong_message)});
-      });
+  time_synchronizer_->SetPongSentTime(ae::Now());
+  constexpr std::string_view pong_message = "pong";
+  std::cout << ae::Format("[{:%H:%M:%S}] Bob sends \"pong\"\n", ae::Now());
+  p2pstream_->Write({std::begin(pong_message), std::end(pong_message)});
 }
 ```
 
