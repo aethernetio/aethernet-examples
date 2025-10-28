@@ -105,8 +105,7 @@ class Bob {
                TimeSynchronizer& time_synchronizer);
 
  private:
-  void OnNewStream(ae::Uid destination_uid,
-                   std::unique_ptr<ae::ByteIStream> message_stream);
+  void OnNewStream(ae::RcPtr<ae::P2pStream> message_stream);
   void OnMessageReceived(ae::DataBuffer const& data_buffer);
 
   ae::AetherApp* aether_app_;
@@ -192,9 +191,9 @@ Alice::Alice(ae::AetherApp& aether_app, ae::Client::ptr client_alice,
     : aether_app_{&aether_app},
       client_alice_{std::move(client_alice)},
       time_synchronizer_{&time_synchronizer},
-      p2pstream_{*aether_app_, kSafeStreamConfig,
-                 ae::make_unique<ae::P2pStream>(*aether_app_, client_alice_,
-                                                bobs_uid)},
+      p2pstream_{
+          *aether_app_, kSafeStreamConfig,
+          ae::MakeRcPtr<ae::P2pStream>(*aether_app_, client_alice_, bobs_uid)},
       interval_sender_{*aether_app_, [this]() { SendMessage(); },
                        std::chrono::milliseconds{5000},
                        ae::RepeatableTask::kRepeatCountInfinite},
@@ -236,15 +235,12 @@ Bob::Bob(ae::AetherApp& aether_app, ae::Client::ptr client_bob,
       client_bob_{std::move(client_bob)},
       time_synchronizer_{&time_synchronizer},
       new_stream_receive_sub_{
-          client_bob_->client_connection()->new_stream_event().Subscribe(
+          client_bob_->message_stream_manager().new_stream_event().Subscribe(
               *this, ae::MethodPtr<&Bob::OnNewStream>{})} {}
 
-void Bob::OnNewStream(ae::Uid destination_uid,
-                      std::unique_ptr<ae::ByteIStream> message_stream) {
+void Bob::OnNewStream(ae::RcPtr<ae::P2pStream> message_stream) {
   p2pstream_ = ae::make_unique<ae::P2pSafeStream>(
-      *aether_app_, kSafeStreamConfig,
-      ae::make_unique<ae::P2pStream>(*aether_app_, client_bob_, destination_uid,
-                                     std::move(message_stream)));
+      *aether_app_, kSafeStreamConfig, std::move(message_stream));
   message_receive_sub_ = p2pstream_->out_data_event().Subscribe(
       *this, ae::MethodPtr<&Bob::OnMessageReceived>{});
 }
