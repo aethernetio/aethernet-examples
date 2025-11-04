@@ -120,18 +120,21 @@ int AetherPingPongExample() {
   auto aether_app = ae::AetherApp::Construct(
       ae::AetherAppContext{}
 #if defined AE_DISTILLATION
-          .AdapterFactory([](ae::AetherAppContext const& context) {
+          .AdaptersFactory([](ae::AetherAppContext const& context) {
+            auto adapter_registry =
+                context.domain().CreateObj<ae::AdapterRegistry>();
 #  if defined ESP32_WIFI_ADAPTER_ENABLED
-            auto adapter = context.domain().CreateObj<ae::Esp32WifiAdapter>(
-                ae::GlobalId::kEsp32WiFiAdapter, context.aether(),
-                context.poller(), context.dns_resolver(),
-                std::string(kWifiSsid), std::string(kWifiPass));
+            adapter_registry->Add(context.domain().CreateObj<ae::WifiAdapter>(
+                ae::GlobalId::kWiFiAdapter, context.aether(), context.poller(),
+                context.dns_resolver(), std::string(kWifiSsid),
+                std::string(kWifiPass)));
 #  else
-            auto adapter = context.domain().CreateObj<ae::EthernetAdapter>(
-                ae::GlobalId::kEthernetAdapter, context.aether(),
-                context.poller(), context.dns_resolver());
+            adapter_registry->Add(
+                context.domain().CreateObj<ae::EthernetAdapter>(
+                    ae::GlobalId::kEthernetAdapter, context.aether(),
+                    context.poller(), context.dns_resolver()));
 #  endif
-            return adapter;
+            return adapter_registry;
           })
 #endif
   );

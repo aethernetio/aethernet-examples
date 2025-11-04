@@ -56,8 +56,7 @@ void BobMeetAlice(ae::Client::ptr const& alice_client,
                   ae::Client::ptr const& bob_client) {
   context->bob_stream = ae::make_unique<ae::P2pSafeStream>(
       *context->aether_app, kSafeStreamConfig,
-      ae::make_unique<ae::P2pStream>(*context->aether_app, bob_client,
-                                     alice_client->uid()));
+      bob_client->message_stream_manager().CreateStream(alice_client->uid()));
 
   auto bob_say = std::string_view{"Hello"};
   auto bob_send_message =
@@ -80,8 +79,7 @@ void BobMeetAlice(ae::Client::ptr const& alice_client,
 
   context->alice_stream = ae::make_unique<ae::P2pSafeStream>(
       *context->aether_app, kSafeStreamConfig,
-      ae::make_unique<ae::P2pStream>(*context->aether_app, alice_client,
-                                     bob_client->uid()));
+      alice_client->message_stream_manager().CreateStream(bob_client->uid()));
 
   context->alice_stream->out_data_event().Subscribe([&](auto const& data) {
     auto str = std::string_view{reinterpret_cast<char const*>(data.data()),
@@ -104,16 +102,19 @@ void setup() {
   context->aether_app = ae::AetherApp::Construct(ae::AetherAppContext{
       []() {
         return ae::make_unique<ae::RamDomainStorage>();
-      }}.AdapterFactory([](ae::AetherAppContext const& context) {
+      }}.AdaptersFactory([](ae::AetherAppContext const& context) {
+    auto adapter_registry = context.domain().CreateObj<ae::AdapterRegistry>();
 #if defined ESP32_WIFI_ADAPTER_ENABLED
-    return context.domain().CreateObj<ae::Esp32WifiAdapter>(
-        ae::GlobalId::kEsp32WiFiAdapter, context.aether(), context.poller(),
-        context.dns_resolver(), std::string(kWifiSsid), std::string(kWifiPass));
+    adapter_registry->Add(context.domain().CreateObj<ae::WifiAdapter>(
+        ae::GlobalId::kWiFiAdapter, context.aether(), context.poller(),
+        context.dns_resolver(), std::string(kWifiSsid),
+        std::string(kWifiPass)));
 #else
-    return context.domain().CreateObj<ae::EthernetAdapter>(
+    adapter_registry->Add(context.domain().CreateObj<ae::EthernetAdapter>(
         ae::GlobalId::kEthernetAdapter, context.aether(), context.poller(),
-        context.dns_resolver());
+        context.dns_resolver()));
 #endif
+    return adapter_registry;
   }));
 
   auto alice_selector = context->aether_app->aether()->SelectClient(
