@@ -1,6 +1,6 @@
-"-D=AE_PROJECT_VERSION \"1.0.0\""
-"-D=USER_CONFIG \"../../user_config.h\""
-"-D=FS_INIT \"../../registered_state.h\""
+"-DAE_PROJECT_VERSION=\"1.0.0\""
+"-DUSER_CONFIG=\"../../user_config.h\""
+"-DFS_INIT=\"../../registered_state.h\""
 
 "-ffast-math"
 "-fno-math-errno"

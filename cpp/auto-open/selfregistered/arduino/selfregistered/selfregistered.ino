@@ -36,116 +36,106 @@ constexpr ae::SafeStreamConfig kSafeStreamConfig{
 };
 
 struct TestContext {
-  ae::Ptr<ae::AetherApp> aether_app;
+  ae::RcPtr<ae::AetherApp> aether_app;
   int send_success = 0;
   bool greeting_success = false;
-  ae::BarrierEvent<ae::Client::ptr, 2> clients_registered_event;
+  ae::CumulativeEvent<ae::Client::ptr, 2> client_selection_event;
   std::unique_ptr<ae::ByteIStream> bob_stream;
   std::unique_ptr<ae::ByteIStream> alice_stream;
-  std::unique_ptr<ae::TimerAction> timer;
+  ae::ActionPtr<ae::TimerAction> timer;
 };
 
-static TestContext main_context{};
-static TestContext* context = &main_context;
+static TestContext* context{};
 
-void bob_meet_alice(ae::Client::ptr const& alice_client,
-                    ae::Client::ptr const& bob_client) {
+void BobMeetAlice(ae::Client::ptr const& alice_client,
+                  ae::Client::ptr const& bob_client) {
   context->bob_stream = ae::make_unique<ae::P2pSafeStream>(
-      *context->aether_app->aether()->action_processor, kSafeStreamConfig,
-      ae::make_unique<ae::P2pStream>(
-          *context->aether_app->aether()->action_processor, bob_client,
-          alice_client->uid()));
+      *context->aether_app, kSafeStreamConfig,
+      bob_client->message_stream_manager().CreateStream(alice_client->uid()));
 
   auto bob_say = std::string_view{"Hello"};
   auto bob_send_message =
       context->bob_stream->Write({std::begin(bob_say), std::end(bob_say)});
 
-  bob_send_message->ResultEvent().Subscribe([&](auto const&) {
-    context->send_success += 1;
-    context->aether_app->get_trigger().Trigger();
-  });
-  bob_send_message->ErrorEvent().Subscribe([&](auto const&) {
-    Serial.println("Send error");
-    context->aether_app->Exit(1);
+  bob_send_message->StatusEvent().Subscribe(ae::ActionHandler{
+      ae::OnResult{[&]() { context->send_success += 1; }},
+      ae::OnError{[&]() {
+        std::cerr << "Send error" << std::endl;
+        context->aether_app->Exit(1);
+      }},
   });
 
   context->bob_stream->out_data_event().Subscribe([&](auto const& data) {
-    auto str =
-        std::string{reinterpret_cast<char const*>(data.data()), data.size()};
-    Serial.printf("Bob received %s\n", str.c_str());
+    auto str = std::string_view{reinterpret_cast<char const*>(data.data()),
+                                data.size()};
+    Serial.printf("Bob received %s\n", str.data());
     context->greeting_success = true;
-    context->aether_app->get_trigger().Trigger();
   });
 
-  alice_client->client_connection()->new_stream_event().Subscribe(
-      [&, alice_client](auto uid, auto stream) {
-        context->alice_stream = ae::make_unique<ae::P2pSafeStream>(
-            *context->aether_app->aether()->action_processor, kSafeStreamConfig,
-            ae::make_unique<ae::P2pStream>(
-                *context->aether_app->aether()->action_processor, alice_client,
-                uid, std::move(stream)));
+  context->alice_stream = ae::make_unique<ae::P2pSafeStream>(
+      *context->aether_app, kSafeStreamConfig,
+      alice_client->message_stream_manager().CreateStream(bob_client->uid()));
 
-        context->alice_stream->out_data_event().Subscribe(
-            [&](auto const& data) {
-              auto str = std::string{reinterpret_cast<char const*>(data.data()),
-                                     data.size()};
-              Serial.printf("Alice received %s\n", str.c_str());
-              auto answear = std::string_view{"Hi"};
-              auto alice_send_message = context->alice_stream->Write(
-                  {std::begin(answear), std::end(answear)});
-              alice_send_message->ResultEvent().Subscribe([&](auto const&) {
-                context->send_success += 1;
-                context->aether_app->get_trigger().Trigger();
-              });
-              alice_send_message->ErrorEvent().Subscribe([&](auto const&) {
-                Serial.println("Send answear error");
-                context->aether_app->Exit(2);
-              });
-            });
-      });
+  context->alice_stream->out_data_event().Subscribe([&](auto const& data) {
+    auto str = std::string_view{reinterpret_cast<char const*>(data.data()),
+                                data.size()};
+    Serial.printf("Alice received %s\n", str);
+    auto answear = std::string_view{"Hi"};
+    auto alice_send_message =
+        context->alice_stream->Write({std::begin(answear), std::end(answear)});
+    alice_send_message->StatusEvent().Subscribe(ae::ActionHandler{
+        ae::OnResult{[&]() { context->send_success += 1; }},
+        ae::OnError{[&]() {
+          Serial.printf("Send answear error\n");
+          context->aether_app->Exit(2);
+        }},
+    });
+  });
 }
 
 void setup() {
   context->aether_app = ae::AetherApp::Construct(ae::AetherAppContext{
       []() {
-        return ae::make_unique<ae::FileSystemRamFacility>();
-      }}.Adapter([](ae::Domain* domain, ae::Aether::ptr const& aether) {
-    return domain->CreateObj<ae::Esp32WifiAdapter>(
-        aether, aether->poller, std::string{kWifiSsid}, std::string{kWifiPass});
+        return ae::make_unique<ae::RamDomainStorage>();
+      }}.AdaptersFactory([](ae::AetherAppContext const& context) {
+    auto adapter_registry = context.domain().CreateObj<ae::AdapterRegistry>();
+#if defined ESP32_WIFI_ADAPTER_ENABLED
+    adapter_registry->Add(context.domain().CreateObj<ae::WifiAdapter>(
+        ae::GlobalId::kWiFiAdapter, context.aether(), context.poller(),
+        context.dns_resolver(), std::string(kWifiSsid),
+        std::string(kWifiPass)));
+#else
+    adapter_registry->Add(context.domain().CreateObj<ae::EthernetAdapter>(
+        ae::GlobalId::kEthernetAdapter, context.aether(), context.poller(),
+        context.dns_resolver()));
+#endif
+    return adapter_registry;
   }));
 
-  auto alice_registrator = context->aether_app->aether()->RegisterClient(
-      ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4"));
-  alice_registrator->ResultEvent().Subscribe([&](auto const& registrar) {
-    context->clients_registered_event.Emit<0>(registrar.client());
-  });
-  alice_registrator->ErrorEvent().Subscribe([&](auto const&) {
-    Serial.println("Alice register failed");
-    context->aether_app->Exit(1);
-  });
+  auto alice_selector = context->aether_app->aether()->SelectClient(
+      ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4"), 0);
+  auto bob_selector = context->aether_app->aether()->SelectClient(
+      ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4"), 1);
 
-  auto bob_registrator = context->aether_app->aether()->RegisterClient(
-      ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4"));
+  context->client_selection_event.Connect(
+      [&](auto event, auto status) {
+        status.OnResult([&](auto const& action) { event = action.client(); })
+            .OnError([&]() { context->aether_app->Exit(1); });
+      },
+      alice_selector->StatusEvent(), bob_selector->StatusEvent());
 
-  bob_registrator->ResultEvent().Subscribe([&](auto const& registrar) {
-    context->clients_registered_event.Emit<1>(registrar.client());
-  });
-  bob_registrator->ErrorEvent().Subscribe([&](auto const&) {
-    Serial.println("Bob register failed");
-    context->aether_app->Exit(1);
+  context->client_selection_event.Subscribe([&](auto const& event) {
+    if (context->aether_app->IsExited()) {
+      return;
+    }
+    BobMeetAlice(event[0], event[1]);
   });
 
-  context->clients_registered_event.Subscribe(
-      [&](ae::BarrierEvent<ae::Client::ptr, 2> const& event) {
-        Serial.println("Bob meet alice");
-        bob_meet_alice(event.Get<0>(), event.Get<1>());
-      });
-
-  context->timer = ae::make_unique<ae::TimerAction>(
+  context->timer = ae::ActionPtr<ae::TimerAction>(
       *context->aether_app->aether()->action_processor,
       std::chrono::seconds{10});
-  context->timer->ResultEvent().Subscribe([&](auto const&) {
-    Serial.println("Test timeout");
+  context->timer->StatusEvent().Subscribe([&](auto const&) {
+    Serial.printf("Test timeout\n");
     context->aether_app->Exit(3);
   });
 }
