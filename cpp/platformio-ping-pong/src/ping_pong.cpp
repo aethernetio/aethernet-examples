@@ -23,8 +23,12 @@
 #include <esp_log.h>
 #include <esp_task_wdt.h>
 
-static constexpr std::string_view kWifiSsid = "Test123";
-static constexpr std::string_view kWifiPass = "Test123";
+#define PING_PONG_ESP_WIFI 1
+
+// IWYU pragma: begin_keeps
+#include "aether_construct_esp_wifi.h"
+// IWYU pragma: end_keeps
+
 static constexpr std::string_view kTag = "PingPong";
 
 static constexpr auto kParentUid =
@@ -107,7 +111,7 @@ class Bob {
 };
 
 int AetherPingPongExample() {
-  auto aether_app = ae::AetherApp::Construct(
+  /*auto aether_app = ae::AetherApp::Construct(
       ae::AetherAppContext{}
 #if defined AE_DISTILLATION
           .AdaptersFactory([](ae::AetherAppContext const& context) {
@@ -127,7 +131,16 @@ int AetherPingPongExample() {
             return adapter_registry;
           })
 #endif
-  );
+  );*/
+  /**
+   * Construct a main aether application class.
+   * It's include a Domain and Aether instances accessible by getter methods.
+   * It has Update, WaitUntil, Exit, IsExit, ExitCode methods to integrate it in
+   * your update loop.
+   * Also it has action context protocol implementation \see Action.
+   * To configure its creation \see AetherAppContext.
+   */
+  auto aether_app = ae::ping_pong::construct_aether_app();
 
   std::unique_ptr<Alice> alice;
   std::unique_ptr<Bob> bob;
