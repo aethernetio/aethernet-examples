@@ -41,23 +41,12 @@ static constexpr auto kFromUid =
     ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4");
 static constexpr auto kToUid =    
     ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e5");
-
-constexpr ae::SafeStreamConfig kSafeStreamConfig{
-    std::numeric_limits<std::uint16_t>::max(),                // buffer_capacity
-    (std::numeric_limits<std::uint16_t>::max() / 2) - 1,      // window_size
-    (std::numeric_limits<std::uint16_t>::max() / 2) - 1 - 1,  // max_data_size
-    10,                              // max_repeat_count
-    std::chrono::milliseconds{600},  // wait_confirm_timeout
-    {},                              // send_confirm_timeout
-    std::chrono::milliseconds{400},  // send_repeat_timeout
-};
 } // namespace ae::temp_sensor
 
 
 extern "C" void app_main();
 int AetherTemperatureExample();
 ae::RcPtr<ae::AetherApp> aether_app{};
-ae::RcPtr<ae::P2pSafeStream> sender_stream{};
 
 void app_main(void) {
   /*If you are using WDT at a given time, you must disable it by updating the
@@ -113,11 +102,10 @@ int AetherTemperatureExample() {
 #if ROLE_MASTER_SLAVE == 1 // Master sensor
   // Make clients messages exchange.
   int confirmed_count = 0;
-  sender_stream= ae::MakeRcPtr<ae::P2pSafeStream>(
-      *aether_app, ae::temp_sensor::kSafeStreamConfig,
-      ae::MakeRcPtr<ae::P2pStream>(*aether_app, client_temperature, 
-      ae::temp_sensor::kToUid));
-
+  ae::RcPtr<ae::P2pStream> sender_stream{};
+  
+  sender_stream = client_temperature->message_stream_manager().CreateStream(ae::temp_sensor::kToUid);
+  
   sender_stream->out_data_event().Subscribe([&](auto const &data) {
     auto str_response =
         std::string(reinterpret_cast<const char *>(data.data()), data.size());
@@ -134,7 +122,7 @@ int AetherTemperatureExample() {
   AE_TELED_DEBUG("Temperature is [{}]", temp);
   auto msg = "{\"status\": \"success\", \"temperature\": \"" + 
              std::to_string(temp) +
-             "\"}";;  
+             "\"}";
   sender_stream->Write(ae::DataBuffer{std::begin(msg), std::end(msg)});
   }, request_timeout, repeat_count};
 #else // Slave sensor
@@ -145,12 +133,11 @@ int AetherTemperatureExample() {
    * Send confirmation to received message.
    */
   int received_count = 0;
-  std::unique_ptr<ae::ByteIStream> receiver_stream;
+  ae::RcPtr<ae::P2pStream> receiver_stream{};
+  
   client_temperature->message_stream_manager().new_stream_event().Subscribe(
       [&](auto p2p_stream) {
-        receiver_stream = ae::make_unique<ae::P2pSafeStream>(
-            *aether_app, ae::temp_sensor::kSafeStreamConfig,
-            std::move(p2p_stream));
+        receiver_stream = std::move(p2p_stream);
 
         receiver_stream->out_data_event().Subscribe([&](auto const& data) {
           auto str_msg = std::string(reinterpret_cast<const char*>(data.data()),
