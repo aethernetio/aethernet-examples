@@ -56,6 +56,4 @@
 #  define AE_SUPPORT_CLOUD_DNS 0
 #endif
 
-#define ESP32_WIFI_ADAPTER_ENABLED 1
-
 #endif  // USER_CONFIG_H_

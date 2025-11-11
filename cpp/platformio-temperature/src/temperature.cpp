@@ -25,12 +25,13 @@
 #include <esp_task_wdt.h>
 
 #define TEMPERATURE_ESP_WIFI 1
+#define ROLE_MASTER_SLAVE 0
 
 // IWYU pragma: begin_keeps
 #include "aether_construct_esp_wifi.h"
 // IWYU pragma: end_keeps
 
-namespace ae::temperature_sensor {
+namespace ae::temp_sensor {
 static constexpr int kWaitTime = 1;
 static constexpr int kWaitUntil = 5;
 
@@ -50,7 +51,7 @@ constexpr ae::SafeStreamConfig kSafeStreamConfig{
     {},                              // send_confirm_timeout
     std::chrono::milliseconds{400},  // send_repeat_timeout
 };
-} // namespace ae::temperature_sensor
+} // namespace ae::temp_sensor
 
 
 extern "C" void app_main();
@@ -74,7 +75,7 @@ void app_main(void) {
 
   esp_err_t err = esp_task_wdt_reconfigure(&config_wdt);
   if (err != 0)
-    ESP_LOGE(std::string(ae::temperature_sensor::kTag).c_str(), "Reconfigure WDT is failed!");
+    ESP_LOGE(std::string(ae::temp_sensor::kTag).c_str(), "Reconfigure WDT is failed!");
 
   AetherTemperatureExample();
 }
@@ -85,32 +86,20 @@ int AetherTemperatureExample() {
 
   ae::TemperatureSensor temp_sensor{temp_sensor_config_};
   
-  auto aether_app = ae::AetherApp::Construct(
-      ae::AetherAppContext{}
-#if defined AE_DISTILLATION
-          .AdaptersFactory([](ae::AetherAppContext const& context) {
-            auto adapter_registry =
-                context.domain().CreateObj<ae::AdapterRegistry>();
-#  if defined ESP32_WIFI_ADAPTER_ENABLED
-            adapter_registry->Add(context.domain().CreateObj<ae::WifiAdapter>(
-                ae::GlobalId::kWiFiAdapter, context.aether(), context.poller(),
-                context.dns_resolver(), std::string(ae::temperature_sensor::kWifiSsid),
-                std::string(ae::temperature_sensor::kWifiPass)));
-#  else
-            adapter_registry->Add(
-                context.domain().CreateObj<ae::EthernetAdapter>(
-                    ae::GlobalId::kEthernetAdapter, context.aether(),
-                    context.poller(), context.dns_resolver()));
-#  endif
-            return adapter_registry;
-          })
-#endif
-  );
+  /**
+   * Construct a main aether application class.
+   * It's include a Domain and Aether instances accessible by getter methods.
+   * It has Update, WaitUntil, Exit, IsExit, ExitCode methods to integrate it in
+   * your update loop.
+   * Also it has action context protocol implementation \see Action.
+   * To configure its creation \see AetherAppContext.
+   */
+  auto aether_app = ae::temp_sensor::construct_aether_app();
 
   ae::Client::ptr client_temperature;
 
   auto select_client_temperature = aether_app->aether()->SelectClient(
-      ae::temperature_sensor::kFromUid, 0);
+      ae::temp_sensor::kFromUid, 0);
 
   select_client_temperature->StatusEvent().Subscribe(ae::ActionHandler{
       ae::OnResult{[&](auto const &action) { client_temperature = action.client(); }},
@@ -120,13 +109,14 @@ int AetherTemperatureExample() {
 
   // clients must be selected
   assert(client_temperature);
-
+  
+#if ROLE_MASTER_SLAVE == 1 // Master sensor
   // Make clients messages exchange.
   int confirmed_count = 0;
   sender_stream= ae::MakeRcPtr<ae::P2pSafeStream>(
-      *aether_app, ae::temperature_sensor::kSafeStreamConfig,
+      *aether_app, ae::temp_sensor::kSafeStreamConfig,
       ae::MakeRcPtr<ae::P2pStream>(*aether_app, client_temperature, 
-      ae::temperature_sensor::kToUid));
+      ae::temp_sensor::kToUid));
 
   sender_stream->out_data_event().Subscribe([&](auto const &data) {
     auto str_response =
@@ -142,10 +132,51 @@ int AetherTemperatureExample() {
   auto repeatable = ae::ActionPtr<ae::RepeatableTask>{*aether_app, [&sender_stream, &temp_sensor](){
   auto temp = temp_sensor.GetTemperature();
   AE_TELED_DEBUG("Temperature is [{}]", temp);
-  auto msg = std::to_string(temp);  
+  auto msg = "{\"status\": \"success\", \"temperature\": \"" + 
+             std::to_string(temp) +
+             "\"}";;  
   sender_stream->Write(ae::DataBuffer{std::begin(msg), std::end(msg)});
   }, request_timeout, repeat_count};
-  
+#else // Slave sensor
+  /**
+   * Make required preparation for receiving messages.
+   * Subscribe to opening new stream event.
+   * Subscribe to receiving message event.
+   * Send confirmation to received message.
+   */
+  int received_count = 0;
+  std::unique_ptr<ae::ByteIStream> receiver_stream;
+  client_temperature->message_stream_manager().new_stream_event().Subscribe(
+      [&](auto p2p_stream) {
+        receiver_stream = ae::make_unique<ae::P2pSafeStream>(
+            *aether_app, ae::temp_sensor::kSafeStreamConfig,
+            std::move(p2p_stream));
+
+        receiver_stream->out_data_event().Subscribe([&](auto const& data) {
+          auto str_msg = std::string(reinterpret_cast<const char*>(data.data()),
+                                     data.size());
+          AE_TELED_DEBUG("Received a message [{}]", str_msg);
+          received_count++;
+          std::string msg{"{\"status\": \"error\"}"};
+          if(str_msg == "{\"get\": \"temperature\"}"){
+            auto temp = temp_sensor.GetTemperature();
+            AE_TELED_DEBUG("Temperature is [{}]", temp);
+            msg = "{\"status\": \"success\", \"temperature\": \"" + 
+            std::to_string(temp) +
+            "\"}";
+          } else if(str_msg == "{\"set\": \"parameters\"}"){
+            // For future use
+            AE_TELED_DEBUG("Setting parameters...");
+          }
+          auto response_action = receiver_stream->Write(
+              {msg.data(), msg.data() + msg.size()});
+          response_action->StatusEvent().Subscribe(ae::OnError{[&]() {
+            AE_TELED_ERROR("Send response failed");
+            aether_app->Exit(1);
+          }});
+        });
+      });
+#endif
   /**
    * Application loop.
    * All the asynchronous actions are updated on this loop.

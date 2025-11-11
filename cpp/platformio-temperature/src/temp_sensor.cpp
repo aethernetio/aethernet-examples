@@ -27,7 +27,7 @@ TemperatureSensor::~TemperatureSensor() { StopSensor(); }
 
 float TemperatureSensor::GetTemperature() {
   float tsens_value = -1000;
-  if (temp_sensor_ != NULL) {
+  if (temp_sensor_ != nullptr) {
     ESP_ERROR_CHECK(temperature_sensor_get_celsius(temp_sensor_, &tsens_value));
   }
 
@@ -41,5 +41,7 @@ void TemperatureSensor::StartSensor() {
 }
 void TemperatureSensor::StopSensor() {
   ESP_ERROR_CHECK(temperature_sensor_disable(temp_sensor_));
+  ESP_ERROR_CHECK(
+      temperature_sensor_uninstall(temp_sensor_));
 }
 }  // namespace ae

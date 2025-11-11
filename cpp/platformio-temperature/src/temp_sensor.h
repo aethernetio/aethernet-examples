@@ -27,7 +27,7 @@ class TemperatureSensor {
   float GetTemperature();
 
  private:
-  temperature_sensor_handle_t temp_sensor_ = NULL;
+  temperature_sensor_handle_t temp_sensor_ = nullptr;
   temperature_sensor_config_t temp_sensor_config_ =
       TEMPERATURE_SENSOR_CONFIG_DEFAULT(10, 50);
 
