@@ -21,7 +21,7 @@
 
 #if TEMPERATURE_ESP_WIFI == 1
 
-namespace ae::temperature_sensor {
+namespace ae::temp_sensor {
 static constexpr std::string_view kWifiSsid = "Test1234";
 static constexpr std::string_view kWifiPass = "Test1234";
 
@@ -42,7 +42,7 @@ RcPtr<AetherApp> construct_aether_app() {
   );
 }
 
-}  // namespace ae::temperature_sensor
+}  // namespace ae::temp_sensor
 
 #endif
 #endif  // CLOUD_AETHER_CONSTRUCT_ESP_WIFI_H_

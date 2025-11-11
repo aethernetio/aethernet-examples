@@ -19,7 +19,7 @@
 
 #include "aether/all.h"
 
-namespace ae::temperature_sensor {
+namespace ae::temp_sensor {
 static RcPtr<AetherApp> construct_aether_app();
 }
 
