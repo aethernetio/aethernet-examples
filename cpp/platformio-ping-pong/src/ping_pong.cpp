@@ -29,6 +29,7 @@
 #include "aether_construct_esp_wifi.h"
 // IWYU pragma: end_keeps
 
+namespace ae::ping_pong {
 static constexpr std::string_view kTag = "PingPong";
 
 static constexpr auto kParentUid =
@@ -53,7 +54,8 @@ void app_main(void) {
 
   esp_err_t err = esp_task_wdt_reconfigure(&config_wdt);
   if (err != 0)
-    ESP_LOGE(std::string(kTag).c_str(), "Reconfigure WDT is failed!");
+    ESP_LOGE(std::string(ae::ping_pong::kTag).c_str(),
+             "Reconfigure WDT is failed!");
 
   AetherPingPongExample();
 }
@@ -111,27 +113,6 @@ class Bob {
 };
 
 int AetherPingPongExample() {
-  /*auto aether_app = ae::AetherApp::Construct(
-      ae::AetherAppContext{}
-#if defined AE_DISTILLATION
-          .AdaptersFactory([](ae::AetherAppContext const& context) {
-            auto adapter_registry =
-                context.domain().CreateObj<ae::AdapterRegistry>();
-#  if defined ESP32_WIFI_ADAPTER_ENABLED
-            adapter_registry->Add(context.domain().CreateObj<ae::WifiAdapter>(
-                ae::GlobalId::kWiFiAdapter, context.aether(), context.poller(),
-                context.dns_resolver(), std::string(kWifiSsid),
-                std::string(kWifiPass)));
-#  else
-            adapter_registry->Add(
-                context.domain().CreateObj<ae::EthernetAdapter>(
-                    ae::GlobalId::kEthernetAdapter, context.aether(),
-                    context.poller(), context.dns_resolver()));
-#  endif
-            return adapter_registry;
-          })
-#endif
-  );*/
   /**
    * Construct a main aether application class.
    * It's include a Domain and Aether instances accessible by getter methods.
@@ -147,8 +128,10 @@ int AetherPingPongExample() {
   TimeSynchronizer time_synchronizer;
 
   // register or load clients
-  auto alice_client = aether_app->aether()->SelectClient(kParentUid, 0);
-  auto bob_client = aether_app->aether()->SelectClient(kParentUid, 1);
+  auto alice_client =
+      aether_app->aether()->SelectClient(ae::ping_pong::kParentUid, 0);
+  auto bob_client =
+      aether_app->aether()->SelectClient(ae::ping_pong::kParentUid, 1);
 
   auto wait_clients = ae::CumulativeEvent<ae::Client::ptr, 2>{
       [&](auto event, auto status) {
