@@ -24,13 +24,17 @@
 #include <esp_log.h>
 #include <esp_task_wdt.h>
 
+#define TEMPERATURE_ESP_WIFI 1
+
+// IWYU pragma: begin_keeps
+#include "aether_construct_esp_wifi.h"
+// IWYU pragma: end_keeps
+
 namespace ae::temperature_sensor {
 static constexpr int kWaitTime = 1;
 static constexpr int kWaitUntil = 5;
 
-static constexpr std::string_view kWifiSsid = "Test1234";
-static constexpr std::string_view kWifiPass = "Test1234";
-static constexpr std::string_view kTag = "Temperature";
+static constexpr std::string_view kTag = "TempSensor";
 
 static constexpr auto kFromUid =
     ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4");
@@ -46,20 +50,6 @@ constexpr ae::SafeStreamConfig kSafeStreamConfig{
     {},                              // send_confirm_timeout
     std::chrono::milliseconds{400},  // send_repeat_timeout
 };
-
-ae::RcPtr<AetherApp> construct_aether_app() {
-  return AetherApp::Construct(
-      AetherAppContext{}.AdaptersFactory([](AetherAppContext const &context) {
-        auto adapter_registry =
-            context.domain().CreateObj<ae::AdapterRegistry>();
-        adapter_registry->Add(context.domain().CreateObj<ae::WifiAdapter>(
-            ae::GlobalId::kWiFiAdapter, context.aether(), context.poller(),
-            context.dns_resolver(), std::string(kWifiSsid),
-            std::string(kWifiPass)));
-        return adapter_registry;
-      }));
-}
-
 } // namespace ae::temperature_sensor
 
 
