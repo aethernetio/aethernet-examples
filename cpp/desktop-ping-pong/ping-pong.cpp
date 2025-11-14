@@ -149,7 +149,7 @@ Alice::Alice(ae::AetherApp& aether_app, ae::Client::ptr client_alice,
                        std::chrono::milliseconds{5000},
                        ae::RepeatableTask::kRepeatCountInfinite},
       receive_data_sub_{p2pstream_.out_data_event().Subscribe(
-          *this, ae::MethodPtr<&Alice::ResponseReceived>{})} {}
+          ae::MethodPtr<&Alice::ResponseReceived>{this})} {}
 
 void Alice::SendMessage() {
   auto current_time = ae::Now();
@@ -187,13 +187,13 @@ Bob::Bob(ae::AetherApp& aether_app, ae::Client::ptr client_bob,
       time_synchronizer_{&time_synchronizer},
       new_stream_receive_sub_{
           client_bob_->message_stream_manager().new_stream_event().Subscribe(
-              *this, ae::MethodPtr<&Bob::OnNewStream>{})} {}
+              ae::MethodPtr<&Bob::OnNewStream>{this})} {}
 
 void Bob::OnNewStream(ae::RcPtr<ae::P2pStream> message_stream) {
   p2pstream_ = ae::make_unique<ae::P2pSafeStream>(
       *aether_app_, kSafeStreamConfig, std::move(message_stream));
   message_receive_sub_ = p2pstream_->out_data_event().Subscribe(
-      *this, ae::MethodPtr<&Bob::OnMessageReceived>{});
+      ae::MethodPtr<&Bob::OnMessageReceived>{this});
 }
 
 void Bob::OnMessageReceived(ae::DataBuffer const& data_buffer) {
