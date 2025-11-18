@@ -30,16 +30,6 @@ static constexpr std::string_view kTag = "PingPong";
 static constexpr auto kParentUid =
     ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4");
 
-constexpr ae::SafeStreamConfig kSafeStreamConfig{
-    std::numeric_limits<std::uint16_t>::max(),                // buffer_capacity
-    (std::numeric_limits<std::uint16_t>::max() / 2) - 1,      // window_size
-    (std::numeric_limits<std::uint16_t>::max() / 2) - 1 - 1,  // max_data_size
-    10,                              // max_repeat_count
-    std::chrono::milliseconds{600},  // wait_confirm_timeout
-    {},                              // send_confirm_timeout
-    std::chrono::milliseconds{400},  // send_repeat_timeout
-};
-
 extern "C" void app_main();
 int AetherPingPongExample();
 
@@ -92,7 +82,7 @@ class Alice {
   ae::AetherApp* aether_app_;
   ae::Client::ptr client_alice_;
   TimeSynchronizer* time_synchronizer_;
-  ae::P2pSafeStream p2pstream_;
+  ae::RcPtr<ae::P2pStream> p2pstream_;
   ae::OwnActionPtr<ae::RepeatableTask> interval_sender_;
   ae::Subscription receive_data_sub_;
   ae::MultiSubscription send_subs_;
@@ -110,8 +100,8 @@ class Bob {
 
   ae::AetherApp* aether_app_;
   ae::Client::ptr client_bob_;
-  std::unique_ptr<ae::P2pSafeStream> p2pstream_;
   TimeSynchronizer* time_synchronizer_;
+  ae::RcPtr<ae::P2pStream> p2pstream_;
   ae::Subscription new_stream_receive_sub_;
   ae::Subscription message_receive_sub_;
 };
@@ -195,12 +185,11 @@ Alice::Alice(ae::AetherApp& aether_app, ae::Client::ptr client_alice,
       client_alice_{std::move(client_alice)},
       time_synchronizer_{&time_synchronizer},
       p2pstream_{
-          *aether_app_, kSafeStreamConfig,
-          ae::MakeRcPtr<ae::P2pStream>(*aether_app_, client_alice_, bobs_uid)},
+          client_alice_->message_stream_manager().CreateStream(bobs_uid)},
       interval_sender_{*aether_app_, [this]() { SendMessage(); },
                        std::chrono::milliseconds{5000},
                        ae::RepeatableTask::kRepeatCountInfinite},
-      receive_data_sub_{p2pstream_.out_data_event().Subscribe(
+      receive_data_sub_{p2pstream_->out_data_event().Subscribe(
           ae::MethodPtr<&Alice::ResponseReceived>{this})} {}
 
 void Alice::SendMessage() {
@@ -211,7 +200,7 @@ void Alice::SendMessage() {
 
   std::cout << ae::Format("[{:%H:%M:%S}] Alice sends \"ping\"'\n", ae::Now());
   auto send_action =
-      p2pstream_.Write({std::begin(ping_message), std::end(ping_message)});
+      p2pstream_->Write({std::begin(ping_message), std::end(ping_message)});
 
   // notify about error
   send_subs_.Push(
@@ -242,8 +231,7 @@ Bob::Bob(ae::AetherApp& aether_app, ae::Client::ptr client_bob,
               ae::MethodPtr<&Bob::OnNewStream>{this})} {}
 
 void Bob::OnNewStream(ae::RcPtr<ae::P2pStream> message_stream) {
-  p2pstream_ = ae::make_unique<ae::P2pSafeStream>(
-      *aether_app_, kSafeStreamConfig, std::move(message_stream));
+  p2pstream_ = std::move(message_stream);
   message_receive_sub_ = p2pstream_->out_data_event().Subscribe(
       ae::MethodPtr<&Bob::OnMessageReceived>{this});
 }
