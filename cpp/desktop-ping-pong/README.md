@@ -34,9 +34,11 @@ Check the `build/state` directory.
 In production mode, *aether* only loads objects with saved states from `./state`.
 This not only saves time and code required to configure large objects but, more importantly, allows the use of saved states between application runs.
 
-To configure the *aether* library, we use a configuration header file. All configuration options with their default values are listed in `aether/config.h`.
+To configure the *aether* library, we use a configuration header file.
+All configuration options with their default values are listed in `aether/config.h`.
 However, users can provide their own configuration through the `USER_CONFIG` option.
-This must be an absolute path or a path relative to something listed in the include directories (compilers `-I` option).
+This must be an absolute path or a path relative to something listed in the
+include directories (compilers `-I` option).
 
 ### Where It All Begins
 ```cpp
@@ -112,13 +114,12 @@ Alice::Alice(ae::AetherApp& aether_app, ae::Client::ptr client_alice,
       client_alice_{std::move(client_alice)},
       time_synchronizer_{&time_synchronizer},
       p2pstream_{
-          *aether_app_, kSafeStreamConfig,
-          ae::MakeRcPtr<ae::P2pStream>(*aether_app_, client_alice_, bobs_uid)},
+          client_alice_->message_stream_manager().CreateStream(bobs_uid)},
       interval_sender_{*aether_app_, [this]() { SendMessage(); },
                        std::chrono::milliseconds{5000},
                        ae::RepeatableTask::kRepeatCountInfinite},
-      receive_data_sub_{p2pstream_.out_data_event().Subscribe(
-          *this, ae::MethodPtr<&Alice::ResponseReceived>{})} {}
+      receive_data_sub_{p2pstream_->out_data_event().Subscribe(
+          ae::MethodPtr<&Alice::ResponseReceived>{this})} {}
 
 void Alice::SendMessage() {
   auto current_time = ae::Now();
@@ -128,7 +129,7 @@ void Alice::SendMessage() {
 
   std::cout << ae::Format("[{:%H:%M:%S}] Alice sends \"ping\"'\n", ae::Now());
   auto send_action =
-      p2pstream_.Write({std::begin(ping_message), std::end(ping_message)});
+      p2pstream_->Write({std::begin(ping_message), std::end(ping_message)});
 
   // notify about error
   send_subs_.Push(
@@ -172,13 +173,12 @@ Bob::Bob(ae::AetherApp& aether_app, ae::Client::ptr client_bob,
       time_synchronizer_{&time_synchronizer},
       new_stream_receive_sub_{
           client_bob_->message_stream_manager().new_stream_event().Subscribe(
-              *this, ae::MethodPtr<&Bob::OnNewStream>{})} {}
+              ae::MethodPtr<&Bob::OnNewStream>{this})} {}
 
 void Bob::OnNewStream(ae::RcPtr<ae::P2pStream> message_stream) {
-  p2pstream_ = ae::make_unique<ae::P2pSafeStream>(
-      *aether_app_, kSafeStreamConfig, std::move(message_stream));
+  p2pstream_ = std::move(message_stream);
   message_receive_sub_ = p2pstream_->out_data_event().Subscribe(
-      *this, ae::MethodPtr<&Bob::OnMessageReceived>{});
+      ae::MethodPtr<&Bob::OnMessageReceived>{this});
 }
 
 void Bob::OnMessageReceived(ae::DataBuffer const& data_buffer) {
