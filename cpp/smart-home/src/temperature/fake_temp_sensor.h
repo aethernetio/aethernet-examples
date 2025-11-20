@@ -14,26 +14,31 @@
  * limitations under the License.
  */
 
-#ifndef SRC_TEMP_SENSOR_H_
-#define SRC_TEMP_SENSOR_H_
+#ifndef TEMPERATURE_FAKE_TEMP_SENSOR_H_
+#define TEMPERATURE_FAKE_TEMP_SENSOR_H_
 
-#include "driver/temperature_sensor.h"
+#include "aether/all.h"
+
+#include "idevice.h"
+#include "api/types.h"
 
 namespace ae {
-class TemperatureSensor {
+class FakeTempSensor : public IDevice {
  public:
-  TemperatureSensor(temperature_sensor_config_t temp_sensor_config);
-  ~TemperatureSensor();
-  float GetTemperature();
+  explicit FakeTempSensor(ActionContext action_context);
+
+  void SetLocalId(int id) override;
+  HardwareDevice description() const override;
+  ActionPtr<DeviceStateAction> GetState() override;
+  ActionPtr<DeviceStateAction> Execute(VariantData const& command) override;
 
  private:
-  temperature_sensor_handle_t temp_sensor_ = nullptr;
-  temperature_sensor_config_t temp_sensor_config_ =
-      TEMPERATURE_SENSOR_CONFIG_DEFAULT(10, 50);
+  float Read();
 
-  void StartSensor();
-  void StopSensor();
+  ActionContext actio_context_;
+  int local_id_{};
+  float old_value_{18.F};
 };
-
 }  // namespace ae
-#endif  // SRC_TEMP_SENSOR_H_
+
+#endif  // TEMPERATURE_FAKE_TEMP_SENSOR_H_

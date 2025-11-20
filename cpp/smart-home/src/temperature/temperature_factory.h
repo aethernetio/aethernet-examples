@@ -14,13 +14,21 @@
  * limitations under the License.
  */
 
-#ifndef CLOUD_AETHER_CONSTRUCT_H_
-#define CLOUD_AETHER_CONSTRUCT_H_
+#ifndef TEMPERATURE_TEMPERATURE_FACTORY_H_
+#define TEMPERATURE_TEMPERATURE_FACTORY_H_
 
-#include "aether/all.h"
+#include <memory>
+
+#include "idevice.h"
+#include "temperature/temp_sensor_config.h"
 
 namespace ae {
-static RcPtr<AetherApp> construct_aether_app();
-}
 
-#endif  // CLOUD_AETHER_CONSTRUCT_H_
+class TemperatureFactory {
+ public:
+  static std::unique_ptr<IDevice> CreateDevice(ActionContext action_context,
+                                               TempSensorConfig* config);
+};
+}  // namespace ae
+
+#endif  // TEMPERATURE_TEMPERATURE_FACTORY_H_

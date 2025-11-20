@@ -14,12 +14,30 @@
  * limitations under the License.
  */
 
-#include "aether/api_protocol/api_method.h"
+#ifndef TEMPERATURE_TEMP_SENSOR_CONFIG_H_
+#define TEMPERATURE_TEMP_SENSOR_CONFIG_H_
 
-class SensorApi {
- public:
-  explicit SensorApi(ae::ProtocolContext& protocol_context)
-      : temperature{protocol_context} {}
+#if defined ESP_PLATFORM
+#  include "driver/temperature_sensor.h"
+#endif
 
-  ae::Method<3, void(float value)> temperature;
+namespace ae {
+enum TempSensorType {
+  kFakeTempSensor,
+  kEspTempSensor,
 };
+
+struct TempSensorConfig {
+  TempSensorType type;
+};
+
+#if defined ESP_PLATFORM
+struct EspTempSensorConfig {
+  TempSensorType type;
+  temperature_sensor_config_t config;
+};
+#endif
+
+}  // namespace ae
+
+#endif  // TEMPERATURE_TEMP_SENSOR_CONFIG_H_

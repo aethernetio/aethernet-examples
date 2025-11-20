@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
-#ifndef CLOUD_AETHER_CONSTRUCT_H_
-#define CLOUD_AETHER_CONSTRUCT_H_
-
-#include "aether/all.h"
+#include "api/api.h"
 
 namespace ae {
-static RcPtr<AetherApp> construct_aether_app();
-}
+SmartHomeClientApi::SmartHomeClientApi(ProtocolContext& protocol_context)
+    : ApiClass{protocol_context}, device_state_updated{protocol_context} {}
 
-#endif  // CLOUD_AETHER_CONSTRUCT_H_
+}  // namespace ae

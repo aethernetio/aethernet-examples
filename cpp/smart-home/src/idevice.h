@@ -14,13 +14,31 @@
  * limitations under the License.
  */
 
-#ifndef CLOUD_AETHER_CONSTRUCT_H_
-#define CLOUD_AETHER_CONSTRUCT_H_
+#ifndef IDEVICE_H_
+#define IDEVICE_H_
 
 #include "aether/all.h"
 
-namespace ae {
-static RcPtr<AetherApp> construct_aether_app();
-}
+#include "api/types.h"
 
-#endif  // CLOUD_AETHER_CONSTRUCT_H_
+namespace ae {
+class DeviceStateAction : public Action<DeviceStateAction> {
+ public:
+  using Action::Action;
+
+  virtual UpdateStatus Update() = 0;
+  virtual DeviceStateData state_data() const = 0;
+};
+
+class IDevice {
+ public:
+  virtual ~IDevice() = default;
+
+  virtual void SetLocalId(int id) = 0;
+  virtual HardwareDevice description() const = 0;
+  virtual ActionPtr<DeviceStateAction> GetState() = 0;
+  virtual ActionPtr<DeviceStateAction> Execute(VariantData const& command) = 0;
+};
+}  // namespace ae
+
+#endif  // IDEVICE_H_

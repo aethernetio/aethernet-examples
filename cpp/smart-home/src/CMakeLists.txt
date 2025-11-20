@@ -15,14 +15,21 @@
 cmake_minimum_required(VERSION 3.16.0)
 
 list( APPEND src_list
-  temperature.cpp
-  temp_sensor.cpp
+  api/api.cpp
+  temperature/temperature_factory.cpp
+  temperature/esp_temp_sensor.cpp
+  temperature/fake_temp_sensor.cpp
+  commutator_api_impl.cpp
+  commutator.cpp
+  smart_home.cpp
+  main.cpp
 )
 
 if(NOT CM_PLATFORM)
-  project("aether-client-cpp-temperature" VERSION "1.0.0" LANGUAGES C CXX)
+  project("smart-home-app" VERSION "1.0.0" LANGUAGES C CXX)
 
   add_executable(${PROJECT_NAME} ${src_list})
+  target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
   target_link_libraries(${PROJECT_NAME} PRIVATE aether)
 
   include(GNUInstallDirs)
@@ -31,7 +38,6 @@ if(NOT CM_PLATFORM)
       RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 else()
-  idf_build_get_property(CM_PLATFORM CM_PLATFORM)
   if(CM_PLATFORM STREQUAL "ESP32")
     #ESP32 CMake
     idf_component_register(SRCS ${src_list}

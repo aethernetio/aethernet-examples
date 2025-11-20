@@ -14,37 +14,29 @@
  * limitations under the License.
  */
 
-#ifndef CLOUD_AETHER_CONSTRUCT_ESP_WIFI_H_
-#define CLOUD_AETHER_CONSTRUCT_ESP_WIFI_H_
+#ifndef AETHER_CONSTRUCT_ETHERNET_H_
+#define AETHER_CONSTRUCT_ETHERNET_H_
 
 #include "aether_construct.h"
 
-#if defined ESP_PLATFORM
-#  if ESP_WIFI
-
+#if ETHERNET
 namespace ae {
-static constexpr std::string_view kWifiSsid = WIFI_SSID;
-static constexpr std::string_view kWifiPass = WIFI_PASSWORD;
-
 RcPtr<AetherApp> construct_aether_app() {
   return AetherApp::Construct(
       AetherAppContext{}
-#    if AE_DISTILLATION
+#  if AE_DISTILLATION
           .AdaptersFactory([](AetherAppContext const& context) {
             auto adapter_registry =
                 context.domain().CreateObj<AdapterRegistry>();
-            adapter_registry->Add(context.domain().CreateObj<WifiAdapter>(
-                GlobalId::kWiFiAdapter, context.aether(), context.poller(),
-                context.dns_resolver(), std::string(kWifiSsid),
-                std::string(kWifiPass)));
+            adapter_registry->Add(context.domain().CreateObj<EthernetAdapter>(
+                GlobalId::kEthernetAdapter, context.aether(), context.poller(),
+                context.dns_resolver()));
             return adapter_registry;
           })
-#    endif
+#  endif
   );
 }
-
 }  // namespace ae
 
-#  endif
 #endif
-#endif  // CLOUD_AETHER_CONSTRUCT_ESP_WIFI_H_
+#endif  // AETHER_CONSTRUCT_ETHERNET_H_
