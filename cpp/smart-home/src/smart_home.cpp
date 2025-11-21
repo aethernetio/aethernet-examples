@@ -71,7 +71,7 @@ int SmartHomeMain() {
                 smart_home_client->uid());
             commutator = std::make_unique<ae::Commutator>(smart_home_client);
     // add sensors to commutator
-#if defined ESP_PLATFORM
+#if defined ESP_PLATFORM && ESP32_HAS_TEMP_SENSOR
             auto temp_sensor_config =
                 ae::EspTempSensorConfig{ae::TempSensorType::kEspTempSensor, {}};
             temp_sensor_config.config =
