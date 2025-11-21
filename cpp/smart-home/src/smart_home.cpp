@@ -55,13 +55,28 @@ int SmartHomeMain() {
       .Subscribe(ae::ActionHandler{
           ae::OnError{[&]() { aether_app->Exit(1); }},
           ae::OnResult{[&](auto const &action) {
-            commutator = std::make_unique<ae::Commutator>(action.client());
+            auto smart_home_client = action.client();
+            std::cout << ae::Format(
+                R"(
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+ REGISTERED CLIENT'S UID: {}
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+                )",
+                smart_home_client->uid());
+            commutator = std::make_unique<ae::Commutator>(smart_home_client);
     // add sensors to commutator
 #if defined ESP_PLATFORM
-            auto temp_sensor_config = EspTempSensorConfig{
-                TempSensorType::kEspTempSensor,
-                temperature_sensor_config_t{
-                    TEMPERATURE_SENSOR_CONFIG_DEFAULT(10, 50)}};
+            auto temp_sensor_config = ae::EspTempSensorConfig{
+                ae::TempSensorType::kEspTempSensor,
+            };
+            temp_sensor_config.config =
+                TEMPERATURE_SENSOR_CONFIG_DEFAULT(10, 50);
 #else
             auto temp_sensor_config =
                 ae::TempSensorConfig{ae::TempSensorType::kFakeTempSensor};
