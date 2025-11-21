@@ -25,7 +25,7 @@ class FakeTempSensorDataStateAction : public DeviceStateAction {
   FakeTempSensorDataStateAction(ActionContext action_context, float value)
       : DeviceStateAction{action_context}, state_data_{} {
     state_data_.payload = VariantData{VariantDouble{value}};
-    state_data_.timestamp = static_cast<std::uint64_t>(
+    state_data_.timestamp = static_cast<std::int64_t>(
         std::chrono::duration_cast<std::chrono::seconds>(
             Now().time_since_epoch())
             .count());

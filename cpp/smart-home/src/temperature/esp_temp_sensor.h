@@ -49,8 +49,7 @@ class EspTempSensor : public IDevice {
   ActionContext action_context_;
   int local_id_{};
   temperature_sensor_handle_t temp_sensor_ = nullptr;
-  temperature_sensor_config_t temp_sensor_config_ =
-      TEMPERATURE_SENSOR_CONFIG_DEFAULT(10, 50);
+  temperature_sensor_config_t temp_sensor_config_;
 };
 
 }  // namespace ae

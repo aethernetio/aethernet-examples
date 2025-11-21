@@ -32,8 +32,7 @@ struct TempSensorConfig {
 };
 
 #if defined ESP_PLATFORM
-struct EspTempSensorConfig {
-  TempSensorType type;
+struct EspTempSensorConfig : public TempSensorConfig {
   temperature_sensor_config_t config;
 };
 #endif
