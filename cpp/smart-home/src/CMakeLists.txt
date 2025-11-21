@@ -14,15 +14,15 @@
 
 cmake_minimum_required(VERSION 3.16.0)
 
-list( APPEND src_list
-  api/api.cpp
-  temperature/temperature_factory.cpp
-  temperature/esp_temp_sensor.cpp
-  temperature/fake_temp_sensor.cpp
-  commutator_api_impl.cpp
-  commutator.cpp
-  smart_home.cpp
-  main.cpp
+list(APPEND src_list
+  "api/api.cpp"
+  "temperature/temperature_factory.cpp"
+  "temperature/esp_temp_sensor.cpp"
+  "temperature/fake_temp_sensor.cpp"
+  "commutator_api_impl.cpp"
+  "commutator.cpp"
+  "smart_home.cpp"
+  "main.cpp"
 )
 
 if(NOT CM_PLATFORM)

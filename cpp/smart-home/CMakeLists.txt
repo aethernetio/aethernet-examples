@@ -20,7 +20,7 @@ if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "")
 endif()
 
-if (ESP_PLATFORM)
+if (ESP_PLATFORM OR IDF_TARGET)
   include($ENV{IDF_PATH}/tools/cmake/project.cmake)
   set(CM_PLATFORM "ESP32")
 endif()
@@ -41,7 +41,8 @@ if (CM_PLATFORM STREQUAL "ESP32")
   list(APPEND EXTRA_COMPONENT_DIRS
     "./src"
     "./aether-client-cpp/aether")
-  project(smart-home LANGUAGES CXX C ASM)
+
+  project(smart_home LANGUAGES CXX C ASM)
 else()
   project(smart-home LANGUAGES CXX C ASM)
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
