@@ -61,7 +61,7 @@ struct DeviceStateData {
   AE_REFLECT_MEMBERS(payload, timestamp)
 
   VariantData payload;
-  std::uint64_t timestamp;
+  std::int64_t timestamp;
 };
 
 struct HwDeviceBase {
