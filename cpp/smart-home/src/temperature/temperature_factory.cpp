@@ -26,7 +26,7 @@ std::unique_ptr<IDevice> TemperatureFactory::CreateDevice(
     [[maybe_unused]] ActionContext action_context, TempSensorConfig* config) {
   switch (config->type) {
     case TempSensorType::kEspTempSensor:
-#if defined ESP_PLATFORM
+#if defined ESP_PLATFORM && ESP32_HAS_TEMP_SENSOR
     {
       auto* esp_config = reinterpret_cast<EspTempSensorConfig*>(config);
       return std::make_unique<EspTempSensor>(action_context,

@@ -16,7 +16,7 @@
 
 #include "temperature/esp_temp_sensor.h"
 
-#if defined ESP_PLATFORM
+#if ESP32_HAS_TEMP_SENSOR
 
 #  include <chrono>
 

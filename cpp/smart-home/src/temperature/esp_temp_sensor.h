@@ -19,11 +19,21 @@
 
 #if defined ESP_PLATFORM
 
-#  include "aether/all.h"
-#  include "driver/temperature_sensor.h"
+#  include "soc/soc_caps.h"
 
-#  include "idevice.h"
-#  include "api/types.h"
+#  if SOC_TEMPERATURE_SENSOR_INTR_SUPPORT && SOC_TEMP_SENSOR_SUPPORTED
+#    define ESP32_HAS_TEMP_SENSOR 1
+#  else
+#    define ESP32_HAS_TEMP_SENSOR 0
+#  endif
+
+#  if ESP32_HAS_TEMP_SENSOR
+
+#    include "aether/all.h"
+#    include "driver/temperature_sensor.h"
+
+#    include "idevice.h"
+#    include "api/types.h"
 
 namespace ae {
 class EspTempSensor : public IDevice {
@@ -53,5 +63,7 @@ class EspTempSensor : public IDevice {
 };
 
 }  // namespace ae
-#endif
+
+#  endif  // ESP32_HAS_TEMP_SENSOR
+#endif  // ESP_PLATFORM
 #endif  // TEMPERATURE_ESP_TEMP_SENSOR_H_
