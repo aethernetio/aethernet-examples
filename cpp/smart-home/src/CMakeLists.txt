@@ -39,10 +39,22 @@ if(NOT CM_PLATFORM)
 
 else()
   if(CM_PLATFORM STREQUAL "ESP32")
+    set(WIFI_SSID "" CACHE STRING "WiFi SSID")
+    set(WIFI_PASSWORD "" CACHE STRING "WiFi Password")
+
     #ESP32 CMake
     idf_component_register(SRCS ${src_list}
       INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
       PRIV_REQUIRES aether esp_driver_tsens)
+
+    set(TARGET_NAME "${COMPONENT_LIB}")
+    if (NOT "${WIFI_SSID}" STREQUAL "")
+      target_compile_definitions(${TARGET_NAME} PRIVATE "WIFI_SSID=\"${WIFI_SSID}\"")
+    endif()
+    if (NOT "${WIFI_PASSWORD}" STREQUAL "")
+      target_compile_definitions(${TARGET_NAME} PRIVATE "WIFI_PASSWORD=\"${WIFI_PASSWORD}\"")
+    endif()
+
   else()
     #Other platforms
     message(FATAL_ERROR "Platform ${CM_PLATFORM} is not supported")
