@@ -17,7 +17,9 @@
 #ifndef TEMPERATURE_TEMP_SENSOR_CONFIG_H_
 #define TEMPERATURE_TEMP_SENSOR_CONFIG_H_
 
-#if defined ESP_PLATFORM
+#include "temperature/esp_temp_sensor.h"
+
+#if defined ESP_PLATFORM && ESP32_HAS_TEMP_SENSOR
 #  include "driver/temperature_sensor.h"
 #endif
 
@@ -31,7 +33,7 @@ struct TempSensorConfig {
   TempSensorType type;
 };
 
-#if defined ESP_PLATFORM
+#if defined ESP_PLATFORM && ESP32_HAS_TEMP_SENSOR
 struct EspTempSensorConfig : public TempSensorConfig {
   temperature_sensor_config_t config;
 };
