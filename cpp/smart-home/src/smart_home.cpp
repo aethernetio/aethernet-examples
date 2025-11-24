@@ -30,6 +30,7 @@
 // IWYU pragma: begin_keeps
 #include "aether_construct_esp_wifi.h"
 #include "aether_construct_ethernet.h"
+#include "temperature/esp_temp_sensor.h"
 // IWYU pragma: end_keeps
 
 static constexpr auto kParentUid =
