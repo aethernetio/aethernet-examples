@@ -6,3 +6,7 @@
 	path = temperature-sensor-app/cpp-client/aether-client-cpp
 	url = https://github.com/aethernetio/aether-client-cpp.git
 	branch = main
+[submodule "cpp/smart-home/aether-client-cpp"]
+	path = cpp/smart-home/aether-client-cpp
+	url = https://github.com/aethernetio/aether-client-cpp.git
+	branch = main
