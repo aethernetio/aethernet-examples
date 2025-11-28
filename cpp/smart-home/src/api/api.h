@@ -29,21 +29,18 @@ class SmartHomeCommutatorApi : public ApiClassImpl<SmartHomeCommutatorApi> {
   virtual ~SmartHomeCommutatorApi() = default;
 
   virtual void GetSystemStructure(
-      ApiParser& parser, PromiseResult<std::vector<HardwareDevice>> result) = 0;
+      PromiseResult<std::vector<HardwareDevice>> result) = 0;
 
-  virtual void ExecuteActorCommand(ApiParser& parser,
-                                   PromiseResult<DeviceStateData> result,
+  virtual void ExecuteActorCommand(PromiseResult<DeviceStateData> result,
                                    int local_actor_id, VariantData command) = 0;
-  virtual void QueryState(ApiParser& parser,
-                          PromiseResult<DeviceStateData> result,
+  virtual void QueryState(PromiseResult<DeviceStateData> result,
                           int local_device_id) = 0;
-  virtual void QueryAllSensorStates(ApiParser& parser) = 0;
+  virtual void QueryAllSensorStates() = 0;
 
-  using ApiMethods =
-      ImplList<RegMethod<10, &SmartHomeCommutatorApi::GetSystemStructure>,
-               RegMethod<4, &SmartHomeCommutatorApi::ExecuteActorCommand>,
-               RegMethod<5, &SmartHomeCommutatorApi::QueryState>,
-               RegMethod<6, &SmartHomeCommutatorApi::QueryAllSensorStates>>;
+  AE_METHODS(RegMethod<10, &SmartHomeCommutatorApi::GetSystemStructure>,
+             RegMethod<4, &SmartHomeCommutatorApi::ExecuteActorCommand>,
+             RegMethod<5, &SmartHomeCommutatorApi::QueryState>,
+             RegMethod<6, &SmartHomeCommutatorApi::QueryAllSensorStates>);
 };
 
 class SmartHomeClientApi : public ApiClass {
