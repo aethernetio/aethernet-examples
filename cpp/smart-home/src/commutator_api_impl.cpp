@@ -27,7 +27,7 @@ CommutatorApiImpl::CommutatorApiImpl(Commutator& commutator,
       stream_{std::move(stream)} {}
 
 void CommutatorApiImpl::GetSystemStructure(
-    ApiParser&, PromiseResult<std::vector<HardwareDevice>> result) {
+    PromiseResult<std::vector<HardwareDevice>> result) {
   std::vector<HardwareDevice> hw_devices;
   hw_devices.reserve(commutator_->devices_.size());
   for (auto& d : commutator_->devices_) {
@@ -42,7 +42,7 @@ void CommutatorApiImpl::GetSystemStructure(
 }
 
 void CommutatorApiImpl::ExecuteActorCommand(
-    ApiParser&, PromiseResult<DeviceStateData> result, int local_actor_id,
+    PromiseResult<DeviceStateData> result, int local_actor_id,
     VariantData command) {
   auto dev_id = static_cast<std::size_t>(local_actor_id);
 
@@ -63,8 +63,7 @@ void CommutatorApiImpl::ExecuteActorCommand(
       }});
 }
 
-void CommutatorApiImpl::QueryState(ApiParser&,
-                                   PromiseResult<DeviceStateData> result,
+void CommutatorApiImpl::QueryState(PromiseResult<DeviceStateData> result,
                                    int local_device_id) {
   auto dev_id = static_cast<std::size_t>(local_device_id);
 
@@ -85,7 +84,7 @@ void CommutatorApiImpl::QueryState(ApiParser&,
       }});
 }
 
-void CommutatorApiImpl::QueryAllSensorStates(ApiParser&) {
+void CommutatorApiImpl::QueryAllSensorStates() {
   commutator_->SendSensorsState(stream_);
 }
 
