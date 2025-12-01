@@ -37,7 +37,19 @@
 static constexpr std::string_view kWifiSsid = WIFI_SSID;
 static constexpr std::string_view kWifiPassword = WIFI_PASSWORD;
 #endif
+/*
+ * Maximum number of records to store.
+ * Maximum amount should fit into 1K bytes of message.
+ * 1 - byte for message code
+ * 2 - byte for record count
+ * 2 - byte each record size
+ */
 static constexpr std::uint16_t kMaxRecordCount = (1024 - 1 - 2) / 2;
+/**
+ * Standard uid for test application.
+ * This is intended to use only for testing purposes due to its limitations.
+ * For real applications you should register your own uid \see aethernet.io
+ */
 static constexpr auto kParentUid =
     ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4");
 
@@ -50,9 +62,18 @@ float ReadTemperature();
  */
 void UpdateRead();
 /**
+ * \brief Pack requested count of recordse into vector.
+ */
+using PackedRecord = std::pair<std::uint8_t, std::uint8_t>;
+std::vector<PackedRecord> RequestRecords(std::uint16_t count);
+/**
  * \brief Message handler
  */
 void OnMessage(ae::Uid const& from, std::vector<std::uint8_t> const& message);
+/**
+ * \brief Message send implementation
+ */
+void SendMessage(ae::Uid const& to, std::vector<std::uint8_t> message);
 
 struct Record {
   float temperature;
@@ -143,16 +164,13 @@ void loop() {
     auto new_time = context.aether_app->Update(ae::Now());
     context.aether_app->WaitUntil(new_time);
   } else {
+    context.read_task->Stop();
     context.streams.clear();
     context.aether_app.Reset();
   }
 }
 
 void OnMessage(ae::Uid const& from, std::vector<std::uint8_t> const& message) {
-  auto it = context.streams.find(from);
-  assert((it != context.streams.end()) && "Stream should exists");
-  auto const& stream = it->second;
-
   // data {i,o}mstreams uses special type to save containers size
   using SizeType = ae::TieredInt<std::uint64_t, std::uint8_t, 250>;
 
@@ -166,42 +184,33 @@ void OnMessage(ae::Uid const& from, std::vector<std::uint8_t> const& message) {
     case 3: {
       std::uint16_t count{};
       is >> count;
-      assert((count > 0) && (count < kMaxRecordCount) &&
-             "Count should in range (0 .. kMaxRecordCount)");
-      auto data_count =
-          std::min(context.records.size(), static_cast<std::size_t>(count));
-      // collect records in packed format
-      // value represented in range -30 to 50 in one byte integer (T + 30) * 3
-      // time represented in seconds between measures
-      std::vector<std::pair<std::uint8_t, std::uint8_t>> packed_data;
-      packed_data.reserve(data_count);
-      for (std::size_t i = 0; i < data_count; ++i) {
-        auto const& record = context.records[i];
-        auto encoded_temp = static_cast<std::uint8_t>(
-            (std::clamp(record.temperature, -30.F, 50.F) + 30.F) * 3.F);
-        auto encoded_time =
-            static_cast<std::uint8_t>(record.time_delta.count());
-        packed_data.emplace_back(encoded_temp, encoded_time);
-      }
+      assert((count > 0) && "Count should be > 0");
+      auto records = RequestRecords(count);
 
       // serialize the answer
       std::vector<std::uint8_t> answer;
       auto writer = ae::VectorWriter<SizeType>{answer};
       auto os = ae::omstream{writer};
       os << std::uint8_t{3};  // the message code
-      os << packed_data;
+      os << records;
 
       // send the answer to the client
-      stream->Write(std::move(answer))
-          ->StatusEvent()
-          .Subscribe(ae::OnError{[]() {
-            std::cerr << "Send message error\n";
-            context.aether_app->Exit(3);
-          }});
+      SendMessage(from, std::move(answer));
     } break;
     default:
       break;
   }
+}
+
+void SendMessage(ae::Uid const& to, std::vector<std::uint8_t> message) {
+  auto it = context.streams.find(to);
+  assert((it != context.streams.end()) && "Stream should exists");
+  auto const& stream = it->second;
+
+  stream->Write(std::move(message))->StatusEvent().Subscribe(ae::OnError{[]() {
+    std::cerr << "Send message error\n";
+    context.aether_app->Exit(3);
+  }});
 }
 
 void UpdateRead() {
@@ -210,7 +219,7 @@ void UpdateRead() {
   context.last_update_time = time;
 
   auto value = ReadTemperature();
-  std::cout << "\n>> Temperature: " << value << "°C\n\n";
+  std::cout << ">> Temperature: " << value << "°C\n\n";
   // the last value is first value
   context.records.push_front(Record{
       value,
@@ -250,3 +259,25 @@ float ReadTemperature() {
   return value;
 }
 #endif
+
+std::vector<PackedRecord> RequestRecords(std::uint16_t count) {
+  auto data_count =
+      std::min(context.records.size(), static_cast<std::size_t>(count));
+  // collect records in packed format
+  // value represented in range -30 to 50 in one byte integer (T + 30) * 3
+  // time represented in seconds between measures
+  using PackedRecord = std::pair<std::uint8_t, std::uint8_t>;
+  std::vector<PackedRecord> packed_data;
+  packed_data.reserve(data_count);
+  for (std::size_t i = 0; i < data_count; ++i) {
+    auto const& record = context.records[i];
+    auto rec = PackedRecord{
+        /*.temperature = */ static_cast<std::uint8_t>(
+            (std::clamp(record.temperature, -30.F, 50.F) + 30.F) * 3.F),
+        /*.time_delta = */
+        static_cast<std::uint8_t>(record.time_delta.count()),
+    };
+    packed_data.push_back(rec);
+  }
+  return packed_data;
+}
