@@ -28,15 +28,15 @@ class CommutatorApiImpl : public SmartHomeCommutatorApi {
   CommutatorApiImpl(Commutator& commutator, RcPtr<P2pStream> stream);
 
   void GetSystemStructure(
-      ApiParser&, PromiseResult<std::vector<HardwareDevice>> result) override;
+      PromiseResult<std::vector<HardwareDevice>> result) override;
 
-  void ExecuteActorCommand(ApiParser&, PromiseResult<DeviceStateData> result,
+  void ExecuteActorCommand(PromiseResult<DeviceStateData> result,
                            int local_actor_id, VariantData command) override;
 
-  void QueryState(ApiParser&, PromiseResult<DeviceStateData> result,
+  void QueryState(PromiseResult<DeviceStateData> result,
                   int local_device_id) override;
 
-  void QueryAllSensorStates(ApiParser&) override;
+  void QueryAllSensorStates() override;
 
  private:
   Commutator* commutator_;
