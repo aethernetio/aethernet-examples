@@ -42,6 +42,11 @@ static constexpr std::string_view kWifiPassword = "test_password";
  */
 static constexpr std::uint16_t kMaxRecordCount = (1024 - 1 - 2) / 2;
 /**
+ * Stream's time to live
+ */
+static constexpr ae::Duration kStreamRemoveTimeout = std::chrono::minutes{10};
+
+/**
  * Standard uid for test application.
  * This is intended to use only for testing purposes due to its limitations.
  * For real applications you should register your own uid \see aethernet.io
@@ -58,6 +63,10 @@ float ReadTemperature();
  */
 void UpdateRead();
 /**
+ * \brief Remove old streams.
+ */
+void RemoveStreams();
+/**
  * \brief Pack requested count of recordse into vector.
  */
 using PackedRecord = std::pair<std::uint8_t, std::uint8_t>;
@@ -71,6 +80,11 @@ void OnMessage(ae::Uid const& from, std::vector<std::uint8_t> const& message);
  */
 void SendMessage(ae::Uid const& to, std::vector<std::uint8_t> message);
 
+struct StreamStore {
+  ae::RcPtr<ae::P2pStream> stream;
+  ae::TimePoint remove_time;
+};
+
 struct Record {
   float temperature;
   std::chrono::seconds time_delta;
@@ -78,8 +92,9 @@ struct Record {
 
 struct Context {
   ae::RcPtr<ae::AetherApp> aether_app;
-  std::map<ae::Uid, ae::RcPtr<ae::P2pStream>> streams;
+  std::map<ae::Uid, StreamStore> streams;
   ae::ActionPtr<ae::RepeatableTask> read_task;
+  ae::ActionPtr<ae::RepeatableTask> stream_remove;
   ae::TimePoint last_update_time;
   std::deque<Record> records;
 };
@@ -123,9 +138,11 @@ void setup() {
         client->message_stream_manager().new_stream_event().Subscribe(
             [](ae::RcPtr<ae::P2pStream> stream) {
               // save stream to the storage and subscribe to messages
-              auto [it, _] = context.streams.emplace(stream->destination(),
-                                                     std::move(stream));
-              it->second->out_data_event().Subscribe(
+              auto [it, _] = context.streams.emplace(
+                  stream->destination(),
+                  StreamStore{std::move(stream),
+                              ae::Now() + kStreamRemoveTimeout});
+              it->second.stream->out_data_event().Subscribe(
                   [uid{it->first}](auto const& data) { OnMessage(uid, data); });
             });
       }},
@@ -135,13 +152,13 @@ void setup() {
       }},
   });
 
+  context.stream_remove = ae::ActionPtr<ae::RepeatableTask>{
+      *context.aether_app, []() { RemoveStreams(); }, std::chrono::minutes{10},
+      /* infinite */};
+
   context.read_task = ae::ActionPtr<ae::RepeatableTask>{
       *context.aether_app, []() { UpdateRead(); }, std::chrono::seconds{10},
       /* infinite */};
-  context.read_task->StatusEvent().Subscribe(ae::OnError{[]() {
-    std::cerr << "Update read task failed\n";
-    context.aether_app->Exit(2);
-  }});
 
   context.last_update_time = ae::Now();
 }
@@ -195,8 +212,9 @@ void OnMessage(ae::Uid const& from, std::vector<std::uint8_t> const& message) {
 void SendMessage(ae::Uid const& to, std::vector<std::uint8_t> message) {
   auto it = context.streams.find(to);
   assert((it != context.streams.end()) && "Stream should exists");
-  auto const& stream = it->second;
+  it->second.remove_time = ae::Now() + kStreamRemoveTimeout;
 
+  auto const& stream = it->second.stream;
   stream->Write(std::move(message))->StatusEvent().Subscribe(ae::OnError{[]() {
     std::cerr << "Send message error\n";
     context.aether_app->Exit(3);
@@ -220,7 +238,19 @@ void UpdateRead() {
   }
 }
 
-#if (SOC_TEMPERATURE_SENSOR_INTR_SUPPORT || SOC_TEMP_SENSOR_SUPPORTED)
+void RemoveStreams() {
+  auto current_time = ae::Now();
+  for (auto it = context.streams.begin(); it != context.streams.end();) {
+    if (current_time >= it->second.remove_time) {
+      it = context.streams.erase(it);
+    } else {
+      ++it;
+    }
+  }
+}
+
+#if defined ESP_PLATFORM && \
+    (SOC_TEMPERATURE_SENSOR_INTR_SUPPORT || SOC_TEMP_SENSOR_SUPPORTED)
 float ReadTemperature() {
   static temperature_sensor_handle_t temp_sensor;
   // initialize once
@@ -241,6 +271,7 @@ float ReadTemperature() {
 float ReadTemperature() {
   // get random value as temperature
   static bool seed = (std::srand(std::time(nullptr)), true);
+  (void)seed;
   static float last_value = 20.F;
   // get diff in range -2 to 2
   auto diff = (static_cast<float>(std::rand() % 40) / 10.F) - 2.F;
