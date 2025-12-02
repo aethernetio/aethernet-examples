@@ -2,7 +2,7 @@
 ### Init dependencies
 It uses git submodules to manage dependencies.
 ```
-git submodule update --remote ./aether-client-cpp
+git submodule update --init --remote ./aether-client-cpp
 ```
 
 ### For desktop
