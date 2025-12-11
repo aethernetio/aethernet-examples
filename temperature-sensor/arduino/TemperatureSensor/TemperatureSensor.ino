@@ -41,9 +41,9 @@ static constexpr std::string_view kWifiPassword = "test_password";
  * 2 - byte each record size
  */
 static constexpr std::uint16_t kMaxRecordCount = (1024 - 1 - 2) / 2;
-/**
- * Stream's time to live
- */
+/** temperature value update interval */
+static constexpr ae::Duration kUpdateInterval = std::chrono::seconds{10};
+/** Stream's time to live */
 static constexpr ae::Duration kStreamRemoveTimeout = std::chrono::minutes{10};
 
 /**
@@ -93,9 +93,8 @@ struct Record {
 struct Context {
   ae::RcPtr<ae::AetherApp> aether_app;
   std::map<ae::Uid, StreamStore> streams;
-  ae::ActionPtr<ae::RepeatableTask> read_task;
-  ae::ActionPtr<ae::RepeatableTask> stream_remove;
   ae::TimePoint last_update_time;
+  ae::TimePoint last_remove_time;
   std::deque<Record> records;
 };
 
@@ -152,26 +151,30 @@ void setup() {
       }},
   });
 
-  context.stream_remove = ae::ActionPtr<ae::RepeatableTask>{
-      *context.aether_app, []() { RemoveStreams(); }, std::chrono::minutes{10},
-      /* infinite */};
-
-  context.read_task = ae::ActionPtr<ae::RepeatableTask>{
-      *context.aether_app, []() { UpdateRead(); }, std::chrono::seconds{10},
-      /* infinite */};
-
   context.last_update_time = ae::Now();
 }
 
 void loop() {
+  auto current_time = ae::Now();
+  // update sensor data
+  if ((current_time - context.last_update_time) > kUpdateInterval) {
+    UpdateRead();
+    context.last_update_time = current_time;
+  }
+
+  // remove unused streams
+  if ((current_time - context.last_remove_time) > kStreamRemoveTimeout) {
+    RemoveStreams();
+    context.last_remove_time = current_time;
+  }
+
   if (!context.aether_app) {
     return;
   }
   if (!context.aether_app->IsExited()) {
-    auto new_time = context.aether_app->Update(ae::Now());
+    auto new_time = context.aether_app->Update(current_time);
     context.aether_app->WaitUntil(new_time);
   } else {
-    context.read_task->Stop();
     context.streams.clear();
     context.aether_app.Reset();
   }
