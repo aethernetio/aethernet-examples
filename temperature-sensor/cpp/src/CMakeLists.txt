@@ -16,6 +16,7 @@ cmake_minimum_required(VERSION 3.16.0)
 
 list(APPEND src_list
   "controller.cpp"
+  "wifi_provisioning.cpp"
   "main.cpp"
 )
 
@@ -39,7 +40,14 @@ else()
     #ESP32 CMake
     idf_component_register(SRCS ${src_list}
       INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
-      PRIV_REQUIRES aether esp_driver_tsens)
+      PRIV_REQUIRES
+        aether
+        esp_driver_tsens
+        esp_driver_gpio
+        esp_http_server
+        esp_event
+        esp_netif
+        esp_hw_support)
 
     set(TARGET_NAME "${COMPONENT_LIB}")
     if (NOT "${WIFI_SSID}" STREQUAL "")
