@@ -37,14 +37,10 @@
 #  include "esp_netif.h"
 #  include "driver/gpio.h"
 
-static const char* TAG = "AETHER_FINAL";
+static const char* TAG = "AE_WP";
 
-static constexpr std::string_view kDeviceId =
-    "2de26d15-ccad-4fb1-a88a-baa2f45327ce";
-static constexpr std::string_view kApSsid = "Aether_72ce";
-
-#  define STATUS_LED_PIN GPIO_NUM_35
-#  define RESET_BUTTON_PIN GPIO_NUM_0
+static constexpr std::string_view kApSsid = WP_APP_NAME;
+static constexpr std::string_view kRedirUrl = WP_REDIR_URL;
 
 namespace wp_internal {
 
@@ -124,7 +120,6 @@ void ResetMonitorTask(void* pv) {
   int hold = 0;
   while (1) {
     if (gpio_get_level(RESET_BUTTON_PIN) == 0) {
-      ESP_LOGI(TAG, "Reset pressed");
       hold += 100;
       current_led_mode = LedMode::kResetting;
       if (hold >= 3000) {
@@ -250,7 +245,6 @@ class ProvisioningServer {
   }
 
   static esp_err_t ScanHandler(httpd_req_t* req) {
-    ESP_LOGI(TAG, "Open scan handler");
     auto* self = static_cast<ProvisioningServer*>(req->user_ctx);
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_send(req, self->cached_wifi_json_.data(), -1);
@@ -278,16 +272,11 @@ class ProvisioningServer {
     self->saved_creds_.emplace(creds);
 
     current_led_mode = LedMode::kConnecting;
-    constexpr char redir_url_format[] =
-        "https://aethernet.io/temp_test_plain.html?id=%s";
-    char redirect_url[sizeof(redir_url_format) + kDeviceId.size()];
-    snprintf(redirect_url, sizeof(redirect_url), redir_url_format,
-             kDeviceId.data());
-
-    httpd_resp_set_status(req, "302 Found");
-    httpd_resp_set_hdr(req, "Location", redirect_url);
-    httpd_resp_send(req, NULL, 0);
-
+    if (!kRedirUrl.empty()) {
+      httpd_resp_set_status(req, "302 Found");
+      httpd_resp_set_hdr(req, "Location", kRedirUrl.data());
+      httpd_resp_send(req, nullptr, 0);
+    }
     // wait till all requests are finished
     vTaskDelay(pdMS_TO_TICKS(2000));
 
@@ -319,7 +308,7 @@ class ProvisioningServer {
     // Instant scan for available networks
     uint16_t ap_num = 15;
     wifi_ap_record_t records[15];
-    esp_wifi_scan_start(NULL, true);
+    esp_wifi_scan_start(nullptr, true);
     esp_wifi_scan_get_ap_records(&ap_num, records);
     cached_wifi_json_[0] = '[';
     int offset = 1;
@@ -339,7 +328,7 @@ class ProvisioningServer {
     }
     cached_wifi_json_[offset] = ']';
     cached_wifi_json_[offset + 1] = '\0';
-    ESP_LOGI(TAG, "found networks %s", cached_wifi_json_.data());
+    ESP_LOGD(TAG, "found networks %s", cached_wifi_json_.data());
   }
 
   void RunServer() {
@@ -369,7 +358,7 @@ class ProvisioningServer {
     }
   }
 
-  httpd_handle_t server_ = NULL;
+  httpd_handle_t server_ = nullptr;
   std::array<char, 1024> cached_wifi_json_;
   std::optional<WifiCreds> saved_creds_;
   std::mutex mutex_;
@@ -404,11 +393,13 @@ bool WifiProvisioning() {
 
   esp_netif_init();
   esp_event_loop_create_default();
-  esp_event_handler_instance_register(
-      WIFI_EVENT, ESP_EVENT_ANY_ID, &wp_internal::WifiEventHandler, NULL, NULL);
+  esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
+                                      &wp_internal::WifiEventHandler, nullptr,
+                                      nullptr);
 
-  xTaskCreate(wp_internal::LedTask, "led", 1024, NULL, 5, NULL);
-  xTaskCreate(wp_internal::ResetMonitorTask, "reset", 2048, NULL, 10, NULL);
+  xTaskCreate(wp_internal::LedTask, "led", 1024, nullptr, 5, nullptr);
+  xTaskCreate(wp_internal::ResetMonitorTask, "reset", 2048, nullptr, 10,
+              nullptr);
 
   auto saved_creds = wp_internal::GetSavedCredentials();
   if (!saved_creds) {
