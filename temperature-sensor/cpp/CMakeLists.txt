@@ -42,9 +42,9 @@ if (CM_PLATFORM STREQUAL "ESP32")
     "./src"
     "./aether-client-cpp/aether")
 
-  project(smart_home LANGUAGES CXX C ASM)
+  project(temperature_sensor LANGUAGES CXX C ASM)
 else()
-  project(smart-home LANGUAGES CXX C ASM)
+  project(temperature_sensor LANGUAGES CXX C ASM)
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
   add_subdirectory("./aether-client-cpp/aether" "aether")
   add_subdirectory("./src" "temperature-sensor")

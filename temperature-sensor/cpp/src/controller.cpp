@@ -106,23 +106,7 @@ static Context context{};
 
 void setup() {
   // create an app
-  context.aether_app = ae::AetherApp::Construct(
-      ae::AetherAppContext{}
-#if ESP_PLATFORM
-          // use wifi for esp
-          .AdaptersFactory([](ae::AetherAppContext const& context) {
-            auto adapter_registry =
-                context.domain().CreateObj<ae::AdapterRegistry>();
-            auto wifi_adapter = context.domain().CreateObj<ae::WifiAdapter>(
-                context.aether(), context.poller(), context.dns_resolver(),
-                std::string(kWifiSsid), std::string(kWifiPassword));
-            adapter_registry->Add(std::move(wifi_adapter));
-            return adapter_registry;
-          })
-#else
-// use default factory for desktop
-#endif
-  );
+  context.aether_app = ae::AetherApp::Construct(ae::AetherAppContext{});
 
   // create a client and subscribe to new messages
   auto select_client_action =

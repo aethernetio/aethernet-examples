@@ -34,6 +34,7 @@ static constexpr std::string_view kTag = "PingPong";
 
 static constexpr auto kParentUid =
     ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4");
+}  // namespace ae::ping_pong
 
 extern "C" void app_main();
 int AetherPingPongExample();
