@@ -33,11 +33,11 @@ extern "C" void app_main(void) {
 
   esp_err_t err = esp_task_wdt_reconfigure(&config_wdt);
   if (err != 0) {
-    ESP_LOGE("SMART_HOME_APP", "Reconfigure WDT is failed!");
+    ESP_LOGE("TEMP_SENSOR_APP", "Reconfigure WDT is failed!");
   }
 
   if (!WifiProvisioning()) {
-    ESP_LOGE("SMART_HOME_APP", "Wifi Provisioning failed!");
+    ESP_LOGE("TEMP_SENSOR_APP", "Wifi Provisioning failed!");
     return;
   }
 

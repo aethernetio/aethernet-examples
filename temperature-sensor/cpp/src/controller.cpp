@@ -22,7 +22,6 @@
 #include <cstdlib>
 #include <cassert>
 #include <cstdint>
-#include <string_view>
 
 #if defined ESP_PLATFORM
 #  include "soc/soc_caps.h"
@@ -31,12 +30,6 @@
 
 // include Aether lib
 #include "aether/all.h"
-
-#if ESP_PLATFORM
-// use wifi for esp
-static constexpr std::string_view kWifiSsid = WIFI_SSID;
-static constexpr std::string_view kWifiPassword = WIFI_PASSWORD;
-#endif
 /*
  * Maximum number of records to store.
  * Maximum amount should fit into 1K bytes of message.
@@ -110,7 +103,7 @@ void setup() {
 
   // create a client and subscribe to new messages
   auto select_client_action =
-      context.aether_app->aether()->SelectClient(kParentUid, 0);
+      context.aether_app->aether()->SelectClient(kParentUid, "Controller");
 
   select_client_action->StatusEvent().Subscribe(ae::ActionHandler{
       ae::OnResult{[](auto const& action) {
@@ -151,9 +144,11 @@ REGISTERED CLIENT'S UID: {}
 void loop() {
   auto current_time = ae::Now();
   // update sensor data
-  if ((current_time - context.last_update_time) > kUpdateInterval) {
+  auto next_update = context.last_update_time + kUpdateInterval;
+  if (current_time >= next_update) {
     UpdateRead();
     context.last_update_time = current_time;
+    next_update = context.last_update_time + kUpdateInterval;
   }
 
   // remove unused streams
@@ -167,7 +162,7 @@ void loop() {
   }
   if (!context.aether_app->IsExited()) {
     auto new_time = context.aether_app->Update(current_time);
-    context.aether_app->WaitUntil(new_time);
+    context.aether_app->WaitUntil(std::min(new_time, next_update));
   } else {
     context.streams.clear();
     context.aether_app.Reset();
@@ -185,7 +180,8 @@ void OnMessage(ae::Uid const& from, std::vector<std::uint8_t> const& message) {
   std::uint8_t code{};
   is >> code;
   switch (code) {
-    case 3: {
+    case 3:  // 3,count:std::uint16_t request records
+    {
       std::uint16_t count{};
       is >> count;
       assert((count > 0) && "Count should be > 0");
@@ -195,7 +191,9 @@ void OnMessage(ae::Uid const& from, std::vector<std::uint8_t> const& message) {
       std::vector<std::uint8_t> answer;
       auto writer = ae::VectorWriter<SizeType>{answer};
       auto os = ae::omstream{writer};
-      os << std::uint8_t{3};  // the message code
+
+      // 3,records:std::vector<PackedRecord> answer
+      os << std::uint8_t{3};
       os << records;
 
       // send the answer to the client
@@ -214,7 +212,6 @@ void SendMessage(ae::Uid const& to, std::vector<std::uint8_t> message) {
   auto const& stream = it->second.stream;
   stream->Write(std::move(message))->StatusEvent().Subscribe(ae::OnError{[]() {
     std::cerr << "Send message error\n";
-    context.aether_app->Exit(3);
   }});
 }
 
@@ -258,6 +255,7 @@ float ReadTemperature() {
     ESP_ERROR_CHECK(temperature_sensor_enable(temp_sensor));
     return true;
   }();
+  (void)initialized;
 
   float value = -1000;
   ESP_ERROR_CHECK(temperature_sensor_get_celsius(temp_sensor, &value));
