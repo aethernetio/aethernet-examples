@@ -15,13 +15,13 @@
 # limitations under the License.
 #
 
+import argparse
 import os
 import re
-import stat
 import shutil
-import argparse
-from platform import system
+import stat
 import subprocess
+from platform import system
 
 repo_urls = {"Aether":"https://github.com/aethernetio/aether-client-cpp.git",
              "Arduino":"https://github.com/aethernetio/aether-client-arduino-library.git"}
@@ -161,6 +161,34 @@ class CmakeBuilderRunner(BuilderRunner):
   def run(self, target_path:str):
     subprocess.run([target_path], check=True)
 
+class ConfigWriter:
+  def write(self, file_src:str, file_dst:str, conf):
+    return
+
+class HeaderFileWriter(ConfigWriter):
+  def write(self, file_src:str, file_dst:str, conf):
+    with(open(file_src, 'r') as src_file):
+      with(open(file_dst, 'w') as dst_file):
+        for l in src_file:
+          dst_file.write(l) # copy the src file
+        # add config to the end
+        for key,value in conf.items():
+          dst_file.write(f"// {key}\n")
+          for k,v in value.items():
+            dst_file.write(f"#define {key}_{k} \"{v}\"\n")
+
+class ConfigIniWriter(ConfigWriter):
+  def write(self, file_src:str, file_dst:str, conf):
+    with(open(file_src, 'r') as src_file):
+      with(open(file_dst, 'w') as dst_file):
+        for l in src_file:
+          dst_file.write(l) # copy the src file
+        # add config to the end
+        for key,value in conf.items():
+          dst_file.write(f"[{key}]\n")
+          for k,v in value.items():
+            dst_file.write(f"{k} = {v}\n")
+
 class ProjectOpener:
   def __init__(self, runner, project, platform, ide, wifi_ssid, wifi_pass, utm_id):
     self._runner = runner
@@ -198,8 +226,15 @@ class ProjectOpener:
     if self._platform.lower() == 'cmake':
       self._builder_runner = CmakeBuilderRunner(self._runner)
 
-    self._wifi_ssid = wifi_ssid
-    self._wifi_pass = wifi_pass
+    if self._project == 'preregistered':
+      self._config_writer = ConfigIniWriter()
+    else:
+      self._config_writer = HeaderFileWriter()
+
+    self._conf = {}
+    if wifi_ssid and wifi_pass:
+      self._conf['AdapterWifi'] = {'ssid':wifi_ssid, 'pass':wifi_pass}
+
     if not utm_id:
       self._utm_id = 0
     else:
@@ -237,27 +272,19 @@ class ProjectOpener:
     self._build_and_run()
 
   def _prepare_config_file(self):
-    conf_dict = {}
     if self._platform != 'cmake':
-      assert self._wifi_ssid, f'Self wifi ssid required for {self._platform} platform'
-      assert self._wifi_pass, f'Self wifi pass required for {self._platform} platform'
-      conf_dict['wifi_ssid'] = self._wifi_ssid
-      conf_dict['wifi_pass'] = self._wifi_pass
-    self._modify_input_file(os.path.join('preregistered', 'project_config.ini.in'), os.path.join('build-registrator', 'project_config.ini'), conf_dict)
+      assert not 'WifiAdapter' in self._conf, f'Self wifi ssid and password required for {self._platform} platform'
+    self._config_writer.write(os.path.join('preregistered', 'project_config.ini.in'), os.path.join('build-registrator', 'project_config.ini'), self._conf)
 
   def _prepare_project_config(self):
-    conf_dict = {}
     if self._platform != 'cmake':
-      assert self._wifi_ssid, f'Self wifi ssid required for {self._platform} platform'
-      assert self._wifi_pass, f'Self wifi pass required for {self._platform} platform'
-      conf_dict['wifi_ssid'] = self._wifi_ssid
-      conf_dict['wifi_pass'] = self._wifi_pass
-    self._modify_input_file(os.path.join('selfregistered', 'project_config.h.in'), os.path.join('selfregistered', 'project_config.h'), conf_dict)
+      assert not 'WifiAdapter' in self._conf, f'Self wifi ssid and password required for {self._platform} platform'
+    self._config_writer.write(os.path.join('selfregistered', 'project_config.h.in'), os.path.join('selfregistered', 'project_config.h'), self._conf)
 
   def _get_registrator(self):
     print("Build registrator ...")
     # configure registrator
-    self._runner.cmake_config(os.path.join('aether-client-cpp', 'tools', 'registrator'), 'build-registrator', '-DAE_DISTILLATION=On', '-DUSER_CONFIG=./preregistered/user_config.h')
+    self._runner.cmake_config(os.path.join('aether-client-cpp', 'tools', 'registrator'), 'build-registrator', '-DCMAKE_BUILD_TYPE=Release','-DAE_DISTILLATION=On', '-DUSER_CONFIG=./preregistered/user_config.h')
     #build registrator
     target_binary = self._runner.cmake_build('build-registrator', 'aether-registrator')
     return target_binary

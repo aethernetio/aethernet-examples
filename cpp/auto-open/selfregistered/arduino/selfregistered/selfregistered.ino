@@ -102,8 +102,8 @@ void setup() {
 #if defined ESP32_WIFI_ADAPTER_ENABLED
     adapter_registry->Add(context.domain().CreateObj<ae::WifiAdapter>(
         ae::GlobalId::kWiFiAdapter, context.aether(), context.poller(),
-        context.dns_resolver(), std::string(kWifiSsid),
-        std::string(kWifiPass)));
+        context.dns_resolver(), std::string(AdapterWifif_ssid),
+        std::string(AdapterWifif_pass)));
 #else
     adapter_registry->Add(context.domain().CreateObj<ae::EthernetAdapter>(
         ae::GlobalId::kEthernetAdapter, context.aether(), context.poller(),
@@ -113,9 +113,9 @@ void setup() {
   }));
 
   auto alice_selector = context->aether_app->aether()->SelectClient(
-      ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4"), 0);
+      ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4"), "Alice");
   auto bob_selector = context->aether_app->aether()->SelectClient(
-      ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4"), 1);
+      ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4"), "Bob");
 
   context->client_selection_event.Connect(
       [&](auto event, auto status) {
