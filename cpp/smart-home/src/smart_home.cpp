@@ -51,11 +51,11 @@ int SmartHomeMain() {
 
   // load or register new client for smart home
   aether_app->aether()
-      ->SelectClient(kParentUid, 0)
+      ->SelectClient(kParentUid, "smart")
       ->StatusEvent()
       .Subscribe(ae::ActionHandler{
           ae::OnError{[&]() { aether_app->Exit(1); }},
-          ae::OnResult{[&](auto const &action) {
+          ae::OnResult{[&](auto const& action) {
             auto smart_home_client = action.client();
             std::cout << ae::Format(
                 R"(

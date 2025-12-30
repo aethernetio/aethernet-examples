@@ -67,8 +67,8 @@ std::unique_ptr<Bob> bob;
 TimeSynchronizer time_synchronizer;
 
 // register or load clients
-auto alice_client = aether_app->aether()->SelectClient(kParentUid, 0);
-auto bob_client = aether_app->aether()->SelectClient(kParentUid, 1);
+auto alice_client = aether_app->aether()->SelectClient(kParentUid, "Alice");
+auto bob_client = aether_app->aether()->SelectClient(kParentUid, "Bob");
 
 auto wait_clients = ae::CumulativeEvent<ae::Client::ptr, 2>{
     [&](auto event, auto status) {

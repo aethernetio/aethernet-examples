@@ -130,9 +130,9 @@ int AetherPingPongExample() {
 
   // register or load clients
   auto alice_client =
-      aether_app->aether()->SelectClient(ae::ping_pong::kParentUid, 0);
+      aether_app->aether()->SelectClient(ae::ping_pong::kParentUid, "Alice");
   auto bob_client =
-      aether_app->aether()->SelectClient(ae::ping_pong::kParentUid, 1);
+      aether_app->aether()->SelectClient(ae::ping_pong::kParentUid, "Bob");
 
   auto wait_clients = ae::CumulativeEvent<ae::Client::ptr, 2>{
       [&](auto event, auto status) {
