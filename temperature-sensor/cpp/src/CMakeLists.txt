@@ -18,6 +18,9 @@ list(APPEND src_list
   "controller.cpp"
   "wifi_provisioning.cpp"
   "main.cpp"
+)
+
+list(APPEND esp_src_list
   "BME68x_SensorAPI/bme68x.c"
 )
 
@@ -39,7 +42,7 @@ else()
     set(WIFI_PASSWORD "" CACHE STRING "WiFi Password")
 
     #ESP32 CMake
-    idf_component_register(SRCS ${src_list}
+    idf_component_register(SRCS ${src_list} ${esp_src_list}
       INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
       REQUIRES led_strip
       PRIV_REQUIRES
