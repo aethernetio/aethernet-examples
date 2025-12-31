@@ -244,23 +244,135 @@ void RemoveStreams() {
 
 #if defined ESP_PLATFORM && \
     (SOC_TEMPERATURE_SENSOR_INTR_SUPPORT || SOC_TEMP_SENSOR_SUPPORTED)
-float ReadTemperature() {
-  static temperature_sensor_handle_t temp_sensor;
-  // initialize once
-  static bool initialized = []() {
-    temperature_sensor_config_t temp_sensor_config =
-        TEMPERATURE_SENSOR_CONFIG_DEFAULT(10, 50);
-    ESP_ERROR_CHECK(
-        temperature_sensor_install(&temp_sensor_config, &temp_sensor));
-    ESP_ERROR_CHECK(temperature_sensor_enable(temp_sensor));
-    return true;
-  }();
-  (void)initialized;
+#include "driver/i2c.h"
+#include "BME68x_SensorAPI/bme68x.h"
+#include <cstring>
+#include "esp_log.h"
 
-  float value = -1000;
-  ESP_ERROR_CHECK(temperature_sensor_get_celsius(temp_sensor, &value));
-  return value;
+// --- Hardware Settings ---
+#define BME_I2C_NUM  I2C_NUM_0
+#define BME_SDA_PIN  2
+#define BME_SCL_PIN  1
+#define BME_ADDR     0x77 
+
+// --- SAFER Interface Functions ---
+
+// FIX 1: Use a Fixed Buffer instead of VLA (Variable Length Array) to prevent stack smash
+#define MAX_I2C_BUFFER 64 
+
+static BME68X_INTF_RET_TYPE bme_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, void *intf_ptr) {
+    uint8_t dev_addr = *(uint8_t*)intf_ptr;
+    esp_err_t err = i2c_master_write_read_device(BME_I2C_NUM, dev_addr, &reg_addr, 1, reg_data, len, pdMS_TO_TICKS(100));
+    return (err == ESP_OK) ? BME68X_OK : BME68X_E_COM_FAIL;
 }
+
+static BME68X_INTF_RET_TYPE bme_i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len, void *intf_ptr) {
+    uint8_t dev_addr = *(uint8_t*)intf_ptr;
+    
+    // SAFETY CHECK: Prevent buffer overflow if driver requests too much data
+    if (len > (MAX_I2C_BUFFER - 1)) {
+        ESP_LOGE("BME688", "Write length too big: %lu", len);
+        return BME68X_E_COM_FAIL;
+    }
+
+    uint8_t buffer[MAX_I2C_BUFFER];
+    buffer[0] = reg_addr;
+    // Safe copy
+    memcpy(&buffer[1], reg_data, len);
+    
+    esp_err_t err = i2c_master_write_to_device(BME_I2C_NUM, dev_addr, buffer, len + 1, pdMS_TO_TICKS(100));
+    return (err == ESP_OK) ? BME68X_OK : BME68X_E_COM_FAIL;
+}
+
+static void bme_delay_us(uint32_t period, void *intf_ptr) {
+    uint32_t ms = (period / 1000) + 1;
+    // FIX 2: Ensure we don't delay for 0 ticks, but also don't block interrupts
+    vTaskDelay(pdMS_TO_TICKS(ms)); 
+}
+
+// --- Main Reading Function ---
+float ReadTemperature() {
+    static struct bme68x_dev bme;
+    static struct bme68x_conf conf;
+    static uint8_t dev_addr = BME_ADDR;
+
+    // Static Initialization Block (Runs once)
+    static bool initialized = []() {
+        // 1. INSTALL I2C DRIVER
+        i2c_config_t i2c_conf = {
+            .mode = I2C_MODE_MASTER,
+            .sda_io_num = BME_SDA_PIN,
+            .scl_io_num = BME_SCL_PIN,
+            .sda_pullup_en = GPIO_PULLUP_ENABLE,
+            .scl_pullup_en = GPIO_PULLUP_ENABLE,
+            .master = { .clk_speed = 100000 },
+            .clk_flags = 0,
+        };
+        
+        // Prevent re-install crash if I2C is already used elsewhere
+        if (i2c_param_config(BME_I2C_NUM, &i2c_conf) != ESP_OK) return false;
+        if (i2c_driver_install(BME_I2C_NUM, i2c_conf.mode, 0, 0, 0) != ESP_OK) return false;
+
+        // 2. Initialize BME Sensor
+        bme.read = bme_i2c_read;
+        bme.write = bme_i2c_write;
+        bme.intf = BME68X_I2C_INTF;
+        bme.delay_us = bme_delay_us;
+        bme.intf_ptr = &dev_addr;
+        bme.amb_temp = 25; 
+
+        if (bme68x_init(&bme) != BME68X_OK) {
+            dev_addr = 0x76; // Try alternate address
+            if (bme68x_init(&bme) != BME68X_OK) return false;
+        }
+
+        // 3. Configure Sensor
+        conf.filter = BME68X_FILTER_OFF;
+        conf.odr = BME68X_ODR_NONE;
+        conf.os_hum = BME68X_OS_NONE;  
+        conf.os_pres = BME68X_OS_NONE; 
+        conf.os_temp = BME68X_OS_2X;   
+        bme68x_set_conf(&conf, &bme);
+        
+        return true;
+    }();
+
+    if (!initialized) return -1000.0f; 
+
+    // Trigger measurement
+    if (bme68x_set_op_mode(BME68X_FORCED_MODE, &bme) != BME68X_OK) return -1000.0f;
+
+    // Wait for measurement
+    uint32_t del_period = bme68x_get_meas_dur(BME68X_FORCED_MODE, &conf, &bme);
+    bme.delay_us(del_period, bme.intf_ptr);
+
+    // Read Data
+    struct bme68x_data data;
+    uint8_t n_fields;
+    if (bme68x_get_data(BME68X_FORCED_MODE, &data, &n_fields, &bme) == BME68X_OK && n_fields > 0) {
+        return data.temperature;
+    }
+
+    return -1000.0f;
+}
+
+// float ReadTemperature() {
+//   static temperature_sensor_handle_t temp_sensor;
+//   // initialize once
+//   static bool initialized = []() {
+//     temperature_sensor_config_t temp_sensor_config =
+//         TEMPERATURE_SENSOR_CONFIG_DEFAULT(10, 50);
+//     ESP_ERROR_CHECK(
+//         temperature_sensor_install(&temp_sensor_config, &temp_sensor));
+//     ESP_ERROR_CHECK(temperature_sensor_enable(temp_sensor));
+//     return true;
+//   }();
+//   (void)initialized;
+
+//   float value = -1000;
+//   ESP_ERROR_CHECK(temperature_sensor_get_celsius(temp_sensor, &value));
+//   return value;
+// }
 #else
 float ReadTemperature() {
   // get random value as temperature

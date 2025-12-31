@@ -1,3 +1,72 @@
+// #include <stdio.h>
+// #include "freertos/FreeRTOS.h"
+// #include "freertos/task.h"
+// #include "driver/gpio.h"
+// #include "esp_log.h"
+// #include "led_strip.h"
+
+// #define BLINK_GPIO (gpio_num_t)35   // Internal RGB LED for AtomS3 Lite
+// #define BUTTON_GPIO (gpio_num_t)41  // Main Button for AtomS3 Lite
+
+// static const char *TAG = "ATOM_S3_APP";
+// static uint32_t blink_delay = 500; // Starting speed (ms)
+
+// // Task to handle the blinking LED
+// void led_task(void *pvParameters) {
+//     led_strip_handle_t led_strip;
+//     led_strip_config_t strip_config = {
+//         .strip_gpio_num = BLINK_GPIO,
+//         .max_leds = 1, 
+//     };
+//     led_strip_rmt_config_t rmt_config = {
+//         .resolution_hz = 10 * 1000 * 1000, // 10MHz
+//     };
+    
+//     ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip));
+
+//     bool led_on = false;
+//     while (1) {
+//         if (led_on) {
+//             led_strip_set_pixel(led_strip, 0, 0, 255, 0); // Green
+//             led_strip_refresh(led_strip);
+//         } else {
+//             led_strip_clear(led_strip);
+//         }
+//         led_on = !led_on;
+//         vTaskDelay(pdMS_TO_TICKS(blink_delay));
+//     }
+// }
+
+// // Task to monitor the button
+// void button_task(void *pvParameters) {
+//     gpio_config_t io_conf = {
+//         .pin_bit_mask = (1ULL << BUTTON_GPIO),
+//         .mode = GPIO_MODE_INPUT,
+//         .pull_up_en = GPIO_PULLUP_ENABLE,
+//     };
+//     gpio_config(&io_conf);
+
+//     int last_state = 1;
+//     while (1) {
+//         int current_state = gpio_get_level(BUTTON_GPIO);
+//         if (last_state == 1 && current_state == 0) { // Button Pressed
+//             if (blink_delay == 500) blink_delay = 200;
+//             else if (blink_delay == 200) blink_delay = 50;
+//             else blink_delay = 500;
+            
+//             ESP_LOGI(TAG, "Frequency changed! Delay now: %ld ms", blink_delay);
+//         }
+//         last_state = current_state;
+//         vTaskDelay(pdMS_TO_TICKS(20)); // Debounce delay
+//     }
+// }
+
+// extern "C" void app_main(void) {
+//     ESP_LOGI(TAG, "Starting LED and Button Demo...");
+//     xTaskCreate(led_task, "led_task", 4096, NULL, 5, NULL);
+//     xTaskCreate(button_task, "button_task", 4096, NULL, 5, NULL);
+// }
+
 /*
  * Copyright 2025 Aethernet Inc.
  *

@@ -18,6 +18,7 @@ list(APPEND src_list
   "controller.cpp"
   "wifi_provisioning.cpp"
   "main.cpp"
+  "BME68x_SensorAPI/bme68x.c"
 )
 
 if(NOT CM_PLATFORM)
@@ -40,6 +41,7 @@ else()
     #ESP32 CMake
     idf_component_register(SRCS ${src_list}
       INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
+      REQUIRES led_strip
       PRIV_REQUIRES
         aether
         esp_driver_tsens
@@ -47,7 +49,8 @@ else()
         esp_http_server
         esp_event
         esp_netif
-        esp_hw_support)
+        esp_hw_support
+        driver)
 
     set(TARGET_NAME "${COMPONENT_LIB}")
     if (NOT "${WIFI_SSID}" STREQUAL "")

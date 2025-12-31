@@ -58,3 +58,5 @@ projects/intel_x86/linux/gcc/aether-client-cpp
 *.sln
 *.DS_Store
 *.vs
+**/temperature-sensor/cpp/managed_components
+**/temperature-sensor/cpp/esp

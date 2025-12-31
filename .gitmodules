@@ -14,3 +14,6 @@
 	path = temperature-sensor/cpp/aether-client-cpp
 	url = https://github.com/aethernetio/aether-client-cpp.git
 	branch = main
+[submodule "temperature-sensor/cpp/src/BME68x_SensorAPI"]
+	path = temperature-sensor/cpp/src/BME68x_SensorAPI
+	url = https://github.com/boschsensortec/BME68x_SensorAPI.git
