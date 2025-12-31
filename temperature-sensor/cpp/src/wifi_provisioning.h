@@ -18,6 +18,7 @@
 #define WIFI_PROVISIONING_H_
 
 // configs used for wifi provisioning
+#define ESP_M5STACK_ATOM_LITE 
 
 // Wifi access point name
 #if not defined WP_APP_NAME

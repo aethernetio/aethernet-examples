@@ -22,6 +22,7 @@
 #include <cstdlib>
 #include <cassert>
 #include <cstdint>
+#include "wifi_provisioning.h"
 
 #if defined ESP_PLATFORM
 #  include "soc/soc_caps.h"
@@ -244,6 +245,7 @@ void RemoveStreams() {
 
 #if defined ESP_PLATFORM && \
     (SOC_TEMPERATURE_SENSOR_INTR_SUPPORT || SOC_TEMP_SENSOR_SUPPORTED)
+#ifdef ESP_M5STACK_ATOM_LITE 
 #include "driver/i2c.h"
 #include "BME68x_SensorAPI/bme68x.h"
 #include <cstring>
@@ -355,24 +357,25 @@ float ReadTemperature() {
 
     return -1000.0f;
 }
+#else
+float ReadTemperature() {
+  static temperature_sensor_handle_t temp_sensor;
+  // initialize once
+  static bool initialized = []() {
+    temperature_sensor_config_t temp_sensor_config =
+        TEMPERATURE_SENSOR_CONFIG_DEFAULT(10, 50);
+    ESP_ERROR_CHECK(
+        temperature_sensor_install(&temp_sensor_config, &temp_sensor));
+    ESP_ERROR_CHECK(temperature_sensor_enable(temp_sensor));
+    return true;
+  }();
+  (void)initialized;
 
-// float ReadTemperature() {
-//   static temperature_sensor_handle_t temp_sensor;
-//   // initialize once
-//   static bool initialized = []() {
-//     temperature_sensor_config_t temp_sensor_config =
-//         TEMPERATURE_SENSOR_CONFIG_DEFAULT(10, 50);
-//     ESP_ERROR_CHECK(
-//         temperature_sensor_install(&temp_sensor_config, &temp_sensor));
-//     ESP_ERROR_CHECK(temperature_sensor_enable(temp_sensor));
-//     return true;
-//   }();
-//   (void)initialized;
-
-//   float value = -1000;
-//   ESP_ERROR_CHECK(temperature_sensor_get_celsius(temp_sensor, &value));
-//   return value;
-// }
+  float value = -1000;
+  ESP_ERROR_CHECK(temperature_sensor_get_celsius(temp_sensor, &value));
+  return value;
+}
+#endif  // ESP_M5STACK_ATOM_LITE 
 #else
 float ReadTemperature() {
   // get random value as temperature
