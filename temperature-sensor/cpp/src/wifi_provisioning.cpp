@@ -44,8 +44,6 @@
 #    include "led_strip.h"
 #  endif
 
-static const char* TAG = "AE_WP";
-
 namespace wp_internal {
 
 struct WifiCreds {
@@ -71,6 +69,9 @@ enum class LedMode : char {
 };
 
 static volatile LedMode current_led_mode = LedMode::kProvisioning;
+
+static esp_netif_t* ap_mode_netif_conf = nullptr;
+static esp_netif_t* sta_mode_netif_conf = nullptr;
 
 // --- NVS HELPERS ---
 bool SaveCreds(WifiCreds const& creds) {
@@ -242,8 +243,8 @@ void WifiApStart() {
   const char* suffix = (len > 4) ? (device_uuid + len - 4) : "wifi";
   snprintf(ssid_name, sizeof(ssid_name), "aether_%s", suffix);
 
-  esp_netif_create_default_wifi_ap();
-  esp_netif_create_default_wifi_sta();
+  ap_mode_netif_conf = esp_netif_create_default_wifi_ap();
+  sta_mode_netif_conf = esp_netif_create_default_wifi_sta();
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   esp_wifi_init(&cfg);
 
@@ -254,6 +255,13 @@ void WifiApStart() {
   esp_wifi_set_mode(WIFI_MODE_APSTA);
   esp_wifi_set_config(WIFI_IF_AP, &ap_cfg);
   esp_wifi_start();
+}
+
+void WifiApStop() {
+  esp_wifi_stop();
+  esp_wifi_deinit();
+  esp_netif_destroy_default_wifi(sta_mode_netif_conf);
+  esp_netif_destroy_default_wifi(ap_mode_netif_conf);
 }
 
 // --- PROVISIONING SERVER ---
@@ -268,6 +276,7 @@ class ProvisioningServer {
     if (server_) {
       httpd_stop(server_);
     }
+    WifiApStop();
   }
 
   std::optional<WifiCreds> WaitForCompletion() {
@@ -436,6 +445,10 @@ bool WifiProvisioning() {
 
   if (current_led_mode != LedMode::kResetting) {
     current_led_mode = LedMode::kConnecting;
+
+    esp_netif_create_default_wifi_sta();
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    esp_wifi_init(&cfg);
 
     wifi_config_t sta_cfg = {};
     strncpy((char*)sta_cfg.sta.ssid, saved_creds->ssid, 32);
