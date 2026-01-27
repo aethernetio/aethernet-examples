@@ -33,6 +33,15 @@
 // use wifi for esp
 static constexpr std::string_view kWifiSsid = "test_ssid";
 static constexpr std::string_view kWifiPassword = "test_password";
+
+static constexpr auto wifi_init = WifiInit{
+    {ae::WifiAp{
+        ae::WifiCreds{kWifiSsid, kWifiPassword},
+        {},
+    }},
+    ae::WiFiPowerSaveParam{},
+};
+
 /*
  * Maximum number of records to store.
  * Maximum amount should fit into 1K bytes of message.
@@ -106,10 +115,10 @@ void setup() {
       ae::AetherAppContext{}  // use wifi for esp
           .AdaptersFactory([](ae::AetherAppContext const& context) {
             auto adapter_registry =
-                context.domain().CreateObj<ae::AdapterRegistry>();
-            auto wifi_adapter = context.domain().CreateObj<ae::WifiAdapter>(
-                context.aether(), context.poller(), context.dns_resolver(),
-                std::string(kWifiSsid), std::string(kWifiPassword));
+                ae::AdapterRegistry::ptr::Create(context.domain());
+            auto wifi_adapter = ae::WifiAdapter::ptr::Create(
+                context.domain(), context.aether(), context.poller(),
+                context.dns_resolver(), wifi_init);
             adapter_registry->Add(std::move(wifi_adapter));
             return adapter_registry;
           }));

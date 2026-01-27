@@ -104,7 +104,7 @@ int main() {
     bob = ae::make_unique<Bob>(*aether_app, std::move(client_bob),
                                time_synchronizer);
     // Save the current aether state
-    aether_app->domain().SaveRoot(aether_app->aether());
+    aether_app->aether().Save();
   });
 
   while (!aether_app->IsExited()) {
