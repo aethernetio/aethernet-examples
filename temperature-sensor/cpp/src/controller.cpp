@@ -27,6 +27,7 @@
 #if defined ESP_PLATFORM
 #  include "soc/soc_caps.h"
 #  include "driver/temperature_sensor.h"
+#  include "sleep_manager.h"
 #endif
 
 // include Aether lib
@@ -97,8 +98,13 @@ struct Context {
 };
 
 static Context context{};
+static SleepManager sleep_mngr{};
 
 void setup() {
+  auto cause = sleep_mngr.getWakeupCause();
+  std::cout << ae::Format(R"(Cause {})", cause) << std::endl;
+  sleep_mngr.enableTimerWakeup(15000000); // every 15 second
+  
   // create an app
   context.aether_app = ae::AetherApp::Construct(ae::AetherAppContext{});
 
@@ -168,6 +174,9 @@ void loop() {
     context.streams.clear();
     context.aether_app.Reset();
   }
+  
+  context.aether_app->aether().Save();
+  sleep_mngr.enterDeepSleep();
 }
 
 void OnMessage(ae::Uid const& from, std::vector<std::uint8_t> const& message) {
@@ -245,7 +254,7 @@ void RemoveStreams() {
 
 #if defined ESP_PLATFORM && \
     (SOC_TEMPERATURE_SENSOR_INTR_SUPPORT || SOC_TEMP_SENSOR_SUPPORTED)
-#  ifdef ESP_M5STACK_ATOM_LITE
+#  ifndef ESP_M5STACK_ATOM_LITE
 #    include "driver/i2c.h"
 #    include "BME68x_SensorAPI/bme68x.h"
 #    include <cstring>
