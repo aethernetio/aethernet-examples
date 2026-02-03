@@ -34,9 +34,9 @@
 static constexpr std::string_view kWifiSsid = "test_ssid";
 static constexpr std::string_view kWifiPassword = "test_password";
 
-static constexpr auto wifi_init = WifiInit{
-    {ae::WifiAp{
-        ae::WifiCreds{kWifiSsid, kWifiPassword},
+static const auto wifi_init = ae::WiFiInit{
+    {ae::WiFiAp{
+        ae::WifiCreds{std::string{kWifiSsid}, std::string{kWifiPassword}},
         {},
     }},
     ae::WiFiPowerSaveParam{},
