@@ -38,12 +38,8 @@
 #define AE_TELE_ENABLED 1
 #define AE_TELE_LOG_CONSOLE 1
 
-#define AE_STATISTICS_MAX_SIZE 256
+#define AE_STATISTICS_MAX_SIZE 1024
 
-#if defined NDEBUG
-#  define AE_TELE_DEBUG_MODULES 0
-#else
-#  define AE_TELE_DEBUG_MODULES AE_ALL
-#endif
+#define AE_TELE_DEBUG_MODULES AE_ALL
 
 #endif  // USER_CONFIG_H_

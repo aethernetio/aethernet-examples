@@ -32,7 +32,7 @@ else()
     set(WIFI_PASSWORD "" CACHE STRING "WiFi Password")
 
     #ESP32 CMake
-    idf_component_register(SRCS ${src_list} ${esp_src_list}
+    idf_component_register(SRCS ${src_list}
       INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
       PRIV_REQUIRES
         aether
