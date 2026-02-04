@@ -17,6 +17,7 @@ cmake_minimum_required(VERSION 3.16)
 list(APPEND sources
     "main.cpp"
     "controller.cpp"
+    "sleep_manager.cpp"
 )
 
 if(NOT CM_PLATFORM)
