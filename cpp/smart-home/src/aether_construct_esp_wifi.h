@@ -23,8 +23,13 @@
 #  if ESP_WIFI
 
 namespace ae {
-static constexpr std::string_view kWifiSsid = WIFI_SSID;
-static constexpr std::string_view kWifiPass = WIFI_PASSWORD;
+static constexpr auto wifi_init = WifiInit{
+    {ae::WifiAp{
+        ae::WifiCreds{WIFI_SSID, WIFI_PASSWORD},
+        {},
+    }},
+    ae::WiFiPowerSaveParam{},
+};
 
 RcPtr<AetherApp> construct_aether_app() {
   return AetherApp::Construct(
@@ -32,11 +37,11 @@ RcPtr<AetherApp> construct_aether_app() {
 #    if AE_DISTILLATION
           .AdaptersFactory([](AetherAppContext const& context) {
             auto adapter_registry =
-                context.domain().CreateObj<AdapterRegistry>();
-            adapter_registry->Add(context.domain().CreateObj<WifiAdapter>(
-                GlobalId::kWiFiAdapter, context.aether(), context.poller(),
-                context.dns_resolver(), std::string(kWifiSsid),
-                std::string(kWifiPass)));
+                AdapterRegistry::ptr::Create(context.domain());
+            adapter_registry->Add(WifiAdapter::ptr::Create(
+                CreateWith{context.domain()}.with_id(GlobalId::kWiFiAdapter),
+                context.aether(), context.poller(), context.dns_resolver(),
+                wifi_init));
             return adapter_registry;
           })
 #    endif

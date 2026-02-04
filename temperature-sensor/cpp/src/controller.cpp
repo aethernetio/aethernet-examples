@@ -138,6 +138,8 @@ REGISTERED CLIENT'S UID: {}
               it->second.stream->out_data_event().Subscribe(
                   [uid{it->first}](auto const& data) { OnMessage(uid, data); });
             });
+
+        context.aether_app->aether().Save();
       }},
       ae::OnError{[]() {
         std::cerr << "Register/Load client failed\n";

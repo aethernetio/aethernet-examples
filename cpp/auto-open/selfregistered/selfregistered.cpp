@@ -103,16 +103,23 @@ void setup() {
       []() {
         return ae::make_unique<ae::RamDomainStorage>();
       }}.AdaptersFactory([](ae::AetherAppContext const& context) {
-    auto adapter_registry = context.domain().CreateObj<ae::AdapterRegistry>();
+    auto adapter_registry = ae::AdapterRegistry::ptr::Create(context.domain());
 #if defined ESP32_WIFI_ADAPTER_ENABLED
-    adapter_registry->Add(context.domain().CreateObj<ae::WifiAdapter>(
-        ae::GlobalId::kWiFiAdapter, context.aether(), context.poller(),
-        context.dns_resolver(), std::string(AdapterWifif_ssid),
-        std::string(AdapterWifif_pass)));
+    auto wifi_init = WifiInit{
+        {ae::WifiAp{
+            ae::WifiCreds{AdapterWifif_ssid, AdapterWifif_pass},
+            {},
+        }},
+        ae::WiFiPowerSaveParam{},
+    };
+    adapter_registry->Add(ae::WifiAdapter::ptr::Create(
+        ae::CreateWith{context.domain()}.with_id(ae::GlobalId::kWiFiAdapter),
+        context.aether(), context.poller(), context.dns_resolver(), wifi_init));
 #else
-    adapter_registry->Add(context.domain().CreateObj<ae::EthernetAdapter>(
-        ae::GlobalId::kEthernetAdapter, context.aether(), context.poller(),
-        context.dns_resolver()));
+    adapter_registry->Add(ae::EthernetAdapter::ptr::Create(
+        ae::CreateWith{context.domain()}.with_id(
+            ae::GlobalId::kEthernetAdapter),
+        context.aether(), context.poller(), context.dns_resolver()));
 #endif
     return adapter_registry;
   }));
