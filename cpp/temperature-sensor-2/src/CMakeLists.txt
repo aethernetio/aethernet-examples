@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.16.0)
 
-list(APPEND sources
+list(APPEND src_list
     "main.cpp"
     "controller.cpp"
     "sleep_manager.cpp"
@@ -23,7 +23,7 @@ list(APPEND sources
 if(NOT CM_PLATFORM)
   project("temperature-sensor-app2" VERSION "1.0.0" LANGUAGES C CXX)
 
-  add_executable(${PROJECT_NAME} ${sources})
+  add_executable(${PROJECT_NAME} ${src_list})
   target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
   target_link_libraries(${PROJECT_NAME} PRIVATE aether)
 else()
