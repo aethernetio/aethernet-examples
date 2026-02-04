@@ -25,17 +25,25 @@ namespace ae::ping_pong {
 static constexpr std::string_view kWifiSsid = "Test1234";
 static constexpr std::string_view kWifiPass = "Test1234";
 
+static const auto kWifiInit = ae::WiFiInit{
+    {ae::WiFiAp{
+        ae::WifiCreds{std::string{kWifiSsid}, std::string{kWifiPass}},
+        {},
+    }},
+    ae::WiFiPowerSaveParam{},
+};
+
 RcPtr<AetherApp> construct_aether_app() {
   return AetherApp::Construct(
       AetherAppContext{}
 #  if defined AE_DISTILLATION
           .AdaptersFactory([](AetherAppContext const& context) {
             auto adapter_registry =
-                context.domain().CreateObj<AdapterRegistry>();
-            adapter_registry->Add(context.domain().CreateObj<WifiAdapter>(
-                GlobalId::kWiFiAdapter, context.aether(), context.poller(),
-                context.dns_resolver(), std::string(kWifiSsid),
-                std::string(kWifiPass)));
+                AdapterRegistry::ptr::Create(context.domain());
+            adapter_registry->Add(WifiAdapter::ptr::Create(
+                CreateWith{context.domain()}.with_id(GlobalId::kWiFiAdapter),
+                context.aether(), context.poller(), context.dns_resolver(),
+                kWifiInit));
             return adapter_registry;
           })
 #  endif
