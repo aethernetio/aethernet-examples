@@ -37,7 +37,25 @@ static constexpr auto kParentUid =
  * TODO: add actual uid
  */
 static constexpr auto kServiceUid =
-    ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4");
+    ae::Uid::FromString("629bf907-293a-4b2b-bbc6-5e1bd6c89ffd");
+
+#ifdef ESP_PLATFORM
+#  ifndef WIFI_SSID
+#    define WIFI_SSID "test_wifi"
+#  endif
+#  ifndef WIFI_PASSWORD
+#    define WIFI_PASSWORD ""
+#  endif
+
+static const auto kWifiCreds = ae::WifiCreds{
+    /* .ssid*/ std::string{WIFI_SSID},
+    /* .password*/ std::string{WIFI_PASSWORD},
+};
+static const auto kWifiInit = ae::WiFiInit{
+    std::vector<ae::WiFiAp>{{kWifiCreds, {}}},
+    ae::WiFiPowerSaveParam{},
+};
+#endif
 
 // Update temperature sensor
 void UpdateTemperature();
@@ -53,7 +71,21 @@ static ae::RcPtr<ae::P2pStream> message_stream;
 static ae::TimePoint last_temp_measure_time;
 
 void setup() {
-  aether_app = ae::AetherApp::Construct(ae::AetherAppContext{});
+  aether_app = ae::AetherApp::Construct(
+      ae::AetherAppContext{}
+#if defined ESP_PLATFORM
+  // For esp32 wifi adapter configured with wifi ssid and password required
+#  if AE_DISTILLATION
+          .AddAdapterFactory([&](ae::AetherAppContext const& context) {
+            return ae::WifiAdapter::ptr::Create(
+                ae::CreateWith{context.domain()}.with_id(
+                    ae::GlobalId::kWiFiAdapter),
+                context.aether(), context.poller(), context.dns_resolver(),
+                kWifiInit);
+          })
+#  endif
+#endif
+  );
 
   // select controller's client
   auto select_client =

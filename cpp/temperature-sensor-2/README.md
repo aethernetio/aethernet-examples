@@ -1,0 +1,37 @@
+## Build Instructions
+### Init dependencies
+It uses git submodules to manage dependencies.
+```
+git submodule update --init --remote ./aether-client-cpp
+```
+
+### For desktop
+For desktop a regular cmake project is used.
+Make build directory, cd to it and configure cmake.
+```sh
+mkdir build
+cd build
+cmake ..
+cmake --build . --parallel
+```
+
+### ESP IDF
+For ESP IDF the same CMakeLists.txt is used.
+Make build directory, cd to it and configure cmake.
+ESP is using wifi connection for internet. Pass your ssid and password to cmake.
+```sh
+mkdir build
+cd build
+
+idf.py -C .. -B . set-target <write your board here>
+idf.py -C .. -B . build -DWIFI_SSID=<your_ssid> -DWIFI_PASSWORD=<your_password>
+idf.py -C .. -B . flash
+```
+
+### PlatformIO
+For PlatformIO the platformio.ini is provided.
+ESP is using wifi connection for internet.
+Edit platformio.ini to match your board and set ssid and password.
+```sh
+pio run -e <env_name> -t upload
+```
