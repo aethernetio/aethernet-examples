@@ -49,8 +49,8 @@ static constexpr auto kServiceUid =
 #  endif
 
 static const auto kWifiCreds = ae::WifiCreds{
-    /* .ssid*/ std::string{"Visuale"},
-    /* .password*/ std::string{"Ws63$yhJ"},
+    /* .ssid*/ std::string{WIFI_SSID},
+    /* .password*/ std::string{WIFI_PASSWORD},
 };
 static const auto kWifiInit = ae::WiFiInit{
     std::vector<ae::WiFiAp>{{kWifiCreds, {}}},
