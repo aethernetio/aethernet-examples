@@ -49,8 +49,8 @@ static constexpr auto kServiceUid =
 #  endif
 
 static const auto kWifiCreds = ae::WifiCreds{
-    /* .ssid*/ std::string{WIFI_SSID},
-    /* .password*/ std::string{WIFI_PASSWORD},
+    /* .ssid*/ std::string{"Visuale"},
+    /* .password*/ std::string{"Ws63$yhJ"},
 };
 static const auto kWifiInit = ae::WiFiInit{
     std::vector<ae::WiFiAp>{{kWifiCreds, {}}},
@@ -73,9 +73,11 @@ static ae::TimePoint last_temp_measure_time;
 static ae::SleepManager sleep_mngr;
 
 void setup() {
-  auto cause = sleep_mngr.getWakeupCause();
+#if ESP_SLEEP_MANAGER_ENABLED == 1
+  auto cause = sleep_mngr.GetWakeupCause();
   std::cout << ae::Format(R"(Cause {})", cause) << std::endl;
-  sleep_mngr.enableTimerWakeup(15000000); // every 15 second
+  sleep_mngr.EnableTimerWakeup(15000000);  // every 15 second
+#endif
 
   aether_app = ae::AetherApp::Construct(
       ae::AetherAppContext{}
@@ -189,5 +191,7 @@ void GoToSleep() {
   // save current aether state
   aether_app->aether().Save();
   // Go to sleep
-  sleep_mngr.enterDeepSleep();
+#if ESP_SLEEP_MANAGER_ENABLED == 1
+  sleep_mngr.EnterSleep(ae::SleepManager::SleepMode::DEEP_SLEEP, true);
+#endif
 }
