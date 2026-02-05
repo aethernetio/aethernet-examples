@@ -247,7 +247,7 @@ void RemoveStreams() {
 
 #if defined ESP_PLATFORM && \
     (SOC_TEMPERATURE_SENSOR_INTR_SUPPORT || SOC_TEMP_SENSOR_SUPPORTED)
-#  ifndef ESP_M5STACK_ATOM_LITE
+#  ifdef ESP_M5STACK_ATOM_LITE
 #    include "driver/i2c.h"
 #    include "BME68x_SensorAPI/bme68x.h"
 #    include <cstring>
