@@ -98,7 +98,7 @@ struct Context {
 
 static Context context{};
 
-void setup() {  
+void setup() {
   // create an app
   context.aether_app = ae::AetherApp::Construct(ae::AetherAppContext{});
 
