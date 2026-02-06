@@ -18,6 +18,7 @@
 #include <cstdlib>
 
 #include "aether/all.h"
+#include "sleep_manager.h"
 
 // timeouts
 // kMaxWaitTime is used to limit the wait time to prevent blocking other tasks
@@ -69,8 +70,15 @@ void GoToSleep();
 static ae::RcPtr<ae::AetherApp> aether_app;
 static ae::RcPtr<ae::P2pStream> message_stream;
 static ae::TimePoint last_temp_measure_time;
+static ae::SleepManager sleep_mngr;
 
 void setup() {
+#if ESP_SLEEP_MANAGER_ENABLED == 1
+  auto cause = sleep_mngr.GetWakeupCause();
+  std::cout << ae::Format(R"(Cause {})", cause) << std::endl;
+  sleep_mngr.EnableTimerWakeup(15000000);  // every 15 second
+#endif
+
   aether_app = ae::AetherApp::Construct(
       ae::AetherAppContext{}
 #if defined ESP_PLATFORM
@@ -182,5 +190,8 @@ void GoToSleep() {
   }
   // save current aether state
   aether_app->aether().Save();
-  // TODO: add implementation for actual sleep
+  // Go to sleep
+#if ESP_SLEEP_MANAGER_ENABLED == 1
+  sleep_mngr.EnterSleep(ae::SleepManager::SleepMode::DEEP_SLEEP, true);
+#endif
 }
