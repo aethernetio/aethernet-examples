@@ -23,8 +23,6 @@
 // timeouts
 // kMaxWaitTime is used to limit the wait time to prevent blocking other tasks
 static constexpr auto kMaxWaitTime = std::chrono::seconds{1};
-// Temperature measurement interval
-static constexpr auto kTemperatureMeasureInterval = std::chrono::seconds{10};
 
 /**
  * Standard uid for test application.
@@ -72,8 +70,6 @@ static ae::RcPtr<ae::P2pStream> message_stream;
 static ae::TimePoint last_temp_measure_time;
 static ae::SleepManager sleep_mngr;
 
-static bool force_measure = false;
-
 void setup() {
 #if ESP_SLEEP_MANAGER_ENABLED == 1
   auto cause = sleep_mngr.GetWakeupCause();
@@ -109,7 +105,9 @@ void setup() {
           message_stream =
               c->message_stream_manager().CreateStream(kServiceUid);
           message_stream->out_data_event().Subscribe(MessageReceived);
-          force_measure = true;
+
+          // measure temperature and send updated value
+          UpdateTemperature();
         });
       }},
       ae::OnError{[]() {
@@ -120,13 +118,6 @@ void setup() {
 }
 
 void loop() {
-  if (force_measure ||
-      (ae::Now() - last_temp_measure_time) > kTemperatureMeasureInterval) {
-    last_temp_measure_time = ae::Now();
-    UpdateTemperature();
-    force_measure = false;
-  }
-
   if (!aether_app) {
     return;
   }
