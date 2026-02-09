@@ -30,19 +30,8 @@
 // Conditional includes based on chip
 #  if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || \
       CONFIG_IDF_TARGET_ESP32S3
-#    include <driver/touch_pad.h>
 #    include <driver/rtc_io.h>
 #    include <driver/gpio.h>
-#    include <driver/rtc_cntl.h>
-#  endif
-
-// Conditional includes based on chip
-#  if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || \
-      CONFIG_IDF_TARGET_ESP32S3
-#    include <driver/touch_pad.h>
-#    include <driver/rtc_io.h>
-#    include <driver/gpio.h>
-#    include <driver/rtc_cntl.h>
 #  endif
 
 #  if CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6 || \
@@ -118,12 +107,6 @@ class SleepManager {
    * @param time_ms Wakeup time in milliseconds
    */
   esp_err_t EnableTimerWakeup(uint64_t time_us);
-
-  /**
-   * @brief Configure touch wakeup (if supported)
-   * @param touch_mask Touch channel mask
-   */
-  esp_err_t EnableTouchWakeup(uint64_t touch_mask = 0);
 
   /**
    * @brief Configure external wakeup (EXT0 - single GPIO)

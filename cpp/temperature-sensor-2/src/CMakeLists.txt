@@ -40,6 +40,7 @@ else()
         esp_driver_gpio
         esp_http_server
         esp_event
+        esp_timer
         esp_netif
         esp_hw_support
         driver)
