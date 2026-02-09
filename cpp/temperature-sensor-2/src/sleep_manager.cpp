@@ -91,32 +91,6 @@ esp_err_t SleepManager::EnableTimerWakeup(uint64_t time_us) {
   return ESP_OK;
 }
 
-esp_err_t SleepManager::EnableTouchWakeup(uint64_t touch_mask) {
-  if (!IsFeatureSupported(WakeupSource::WAKEUP_TOUCHPAD)) {
-    return ESP_ERR_NOT_SUPPORTED;
-  }
-
-  esp_err_t ret = ESP_OK;
-
-  switch (chip_type) {
-    case ChipType::ESP32:
-    case ChipType::ESP32_D2WD:
-      ret = SetupTouchWakeupESP32(touch_mask);
-      break;
-
-    case ChipType::ESP32_S2:
-    case ChipType::ESP32_S3:
-      ret = SetupTouchWakeupS2S3(touch_mask);
-      break;
-
-    default:
-      ret = ESP_ERR_NOT_SUPPORTED;
-      break;
-  }
-
-  return ret;
-}
-
 esp_err_t SleepManager::EnableExt0Wakeup(gpio_num_t gpio_num, int level) {
   if (!IsFeatureSupported(WakeupSource::WAKEUP_EXT0)) {
     return ESP_ERR_NOT_SUPPORTED;
@@ -239,10 +213,6 @@ esp_err_t SleepManager::DisableAllWakeupSources() {
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TOUCHPAD);
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ULP);
 
-#  if CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
-    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_USB);
-#  endif
-
 #  if CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6 || \
       CONFIG_IDF_TARGET_ESP32S3
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_UART);
@@ -261,17 +231,7 @@ esp_err_t SleepManager::DisableAllWakeupSources() {
     gpio_wakeup_disable((gpio_num_t)i);
   }
 
-// 3. Disable Touch wakeup (if supported)
-#  if CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
-  touch_pad_clear_status();
-
-  // Turn off all touch channels
-  for (int i = 0; i < TOUCH_PAD_MAX; i++) {
-    touch_pad_intr_disable((touch_pad_t)i);
-  }
-#  endif
-
-// 4. Disable RTC GPIO pullups/pulldowns to reduce consumption
+// 3. Disable RTC GPIO pullups/pulldowns to reduce consumption
 #  if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 ||   \
       CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C3 || \
       CONFIG_IDF_TARGET_ESP32C6
