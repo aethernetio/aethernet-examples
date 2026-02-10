@@ -63,18 +63,19 @@ void MessageReceived(ae::DataBuffer const& buffer);
 // Send the message value to the aether service
 void SendValue(float value);
 // Go to sleep method
-void GoToSleep();
+void GoToSleep(ae::TimePoint sleep_until);
 
 static ae::RcPtr<ae::AetherApp> aether_app;
 static ae::RcPtr<ae::P2pStream> message_stream;
-static ae::TimePoint last_temp_measure_time;
+
+#if ESP_SLEEP_MANAGER_ENABLED == 1
 static ae::SleepManager sleep_mngr;
+#endif
 
 void setup() {
 #if ESP_SLEEP_MANAGER_ENABLED == 1
   auto cause = sleep_mngr.GetWakeupCause();
   std::cout << ae::Format(R"(Cause {})", cause) << std::endl;
-  sleep_mngr.EnableTimerWakeup(15000000);  // every 15 second
 #endif
 
   aether_app = ae::AetherApp::Construct(
@@ -92,6 +93,16 @@ void setup() {
 #  endif
 #endif
   );
+
+  // configure uap
+  // 60secs for send/receive
+  // then 2 times by 30 seconds for send only
+  aether_app->aether()->uap->SetIntervals({
+      ae::Interval{ae::IntervalType::kSendReceive, std::chrono::seconds{60}},
+      ae::Interval{ae::IntervalType::kSendOnly, std::chrono::seconds{30}},
+      ae::Interval{ae::IntervalType::kSendOnly, std::chrono::seconds{30}},
+  });
+  aether_app->aether()->uap->sleep_event().Subscribe(&GoToSleep);
 
   // select controller's client
   auto select_client =
@@ -174,11 +185,11 @@ void SendValue(float value) {
   auto write_action = message_stream->Write(std::move(message));
   write_action->StatusEvent().Subscribe([](auto) {
     // with any result ready to sleep
-    GoToSleep();
+    aether_app->aether()->uap->SleepReady();
   });
 }
 
-void GoToSleep() {
+void GoToSleep(ae::TimePoint sleep_until) {
   std::cout << " >>> Going to sleep...\n";
 
   if (!aether_app) {
@@ -188,6 +199,18 @@ void GoToSleep() {
   aether_app->aether().Save();
   // Go to sleep
 #if ESP_SLEEP_MANAGER_ENABLED == 1
+  // calculate time for sleep duration
+  auto current_time = ae::Now();
+  if (current_time > sleep_until) {
+    std::cout << " !!! Time overlapped\n";
+    sleep_mngr.EnableTimerWakeup(100);
+    sleep_mngr.EnterSleep(ae::SleepManager::SleepMode::DEEP_SLEEP, true);
+  }
+  auto dur = std::chrono::duration_cast<std::chrono::microseconds>(
+      sleep_until - current_time);
+  std::cout << ae::Format(" >>> Sleep for {:%H:%M:%S}...\n", dur);
+
+  sleep_mngr.EnableTimerWakeup(dur.count());
   sleep_mngr.EnterSleep(ae::SleepManager::SleepMode::DEEP_SLEEP, true);
 #endif
 }
