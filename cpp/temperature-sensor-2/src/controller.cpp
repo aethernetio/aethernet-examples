@@ -63,7 +63,7 @@ void MessageReceived(ae::DataBuffer const& buffer);
 // Send the message value to the aether service
 void SendValue(float value);
 // Go to sleep method
-void GoToSleep(ae::TimePoint sleep_until);
+void GoToSleep(ae::Uap::Timer uap_timer);
 
 static ae::RcPtr<ae::AetherApp> aether_app;
 static ae::RcPtr<ae::P2pStream> message_stream;
@@ -80,9 +80,10 @@ void setup() {
 
   aether_app = ae::AetherApp::Construct(
       ae::AetherAppContext{}
-#if defined ESP_PLATFORM
-  // For esp32 wifi adapter configured with wifi ssid and password required
-#  if AE_DISTILLATION
+#if AE_DISTILLATION
+#  if defined ESP_PLATFORM
+          // For esp32 wifi adapter configured with wifi ssid and password
+          // required
           .AddAdapterFactory([&](ae::AetherAppContext const& context) {
             return ae::WifiAdapter::ptr::Create(
                 ae::CreateWith{context.domain()}.with_id(
@@ -91,17 +92,30 @@ void setup() {
                 kWifiInit);
           })
 #  endif
+          .UapFactory([](ae::AetherAppContext const& context) {
+            auto uap = context.aether()->uap;
+            if (uap.is_valid()) {
+              std::cout << " >>>> Return loaded UAP\n";
+              return uap;
+            }
+            // configure uap
+            // 60secs for send/receive
+            // then 2 times by 30 seconds for send only
+            return ae::Uap::ptr::Create(
+                ae::CreateWith{context.domain()}.with_id(ae::GlobalId::kUap),
+                context.aether(),
+                std::initializer_list{
+                    ae::Interval{ae::IntervalType::kSendReceive,
+                                 std::chrono::seconds{60}},
+                    ae::Interval{ae::IntervalType::kSendOnly,
+                                 std::chrono::seconds{30}},
+                    ae::Interval{ae::IntervalType::kSendOnly,
+                                 std::chrono::seconds{30}}});
+          })
 #endif
   );
 
-  // configure uap
-  // 60secs for send/receive
-  // then 2 times by 30 seconds for send only
-  aether_app->aether()->uap->SetIntervals({
-      ae::Interval{ae::IntervalType::kSendReceive, std::chrono::seconds{60}},
-      ae::Interval{ae::IntervalType::kSendOnly, std::chrono::seconds{30}},
-      ae::Interval{ae::IntervalType::kSendOnly, std::chrono::seconds{30}},
-  });
+  // setup sleep on uap event
   aether_app->aether()->uap->sleep_event().Subscribe(&GoToSleep);
 
   // select controller's client
@@ -189,28 +203,25 @@ void SendValue(float value) {
   });
 }
 
-void GoToSleep(ae::TimePoint sleep_until) {
+void GoToSleep(ae::Uap::Timer uap_timer) {
   std::cout << " >>> Going to sleep...\n";
 
   if (!aether_app) {
     return;
   }
+  // get the interval with the specified offset
+  // offset is required to account the Save operation
+  auto interval = uap_timer.interval(std::chrono::seconds{10});
   // save current aether state
   aether_app->aether().Save();
   // Go to sleep
 #if ESP_SLEEP_MANAGER_ENABLED == 1
   // calculate time for sleep duration
-  auto current_time = ae::Now();
-  if (current_time > sleep_until) {
-    std::cout << " !!! Time overlapped\n";
-    sleep_mngr.EnableTimerWakeup(100);
-    sleep_mngr.EnterSleep(ae::SleepManager::SleepMode::DEEP_SLEEP, true);
-  }
-  auto dur = std::chrono::duration_cast<std::chrono::microseconds>(
-      sleep_until - current_time);
-  std::cout << ae::Format(" >>> Sleep for {:%H:%M:%S}...\n", dur);
+  auto duration = interval.remaining();
+  std::cout << ae::Format(" >>> Sleep for {:%H:%M:%S}...\n", duration);
 
-  sleep_mngr.EnableTimerWakeup(dur.count());
+  sleep_mngr.EnableTimerWakeup(
+      std::chrono::duration_cast<std::chrono::microseconds>(duration).count());
   sleep_mngr.EnterSleep(ae::SleepManager::SleepMode::DEEP_SLEEP, true);
 #endif
 }
