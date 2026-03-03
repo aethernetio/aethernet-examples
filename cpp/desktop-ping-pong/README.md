@@ -15,7 +15,7 @@ build_and_run.bat
 ## Deep Dive
 ### The Recipe to Build
 We are using **CMake** for now. Although some consider it an industry standard, other build systems will also be supported in the future.
-The *aether* library requires at least *C++17*, so ensure your project requires it and refer to the following code snippet.
+The *aether* library requires at least *C++20*, so ensure your project requires it and refer to the following code snippet.
 
 ```cmake
 # Add a user-provided config file, which will be included as a regular .h file
