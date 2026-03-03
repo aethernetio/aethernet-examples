@@ -24,7 +24,7 @@ if (ESP_PLATFORM OR IDF_TARGET)
   set(CM_PLATFORM "ESP32")
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # add user provided config wich will be included as regular .h file

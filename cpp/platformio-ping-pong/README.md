@@ -19,7 +19,7 @@ After successful compilation, download the firmware by selecting the menu item "
 ## Dive deep
 ### The recipe to build
 We are using **CMake** for now. Though some considered it industry standard other build systems also would be supported in the future.
-Lib `aether` requires at least *c++17*, so require it on your project and look at the nex code snippet.
+Lib `aether` requires at least *c++20*, so require it on your project and look at the nex code snippet.
 
 ```cmake
 # add user provided config which will be included as regular .h file
