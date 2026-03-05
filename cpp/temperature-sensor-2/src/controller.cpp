@@ -105,12 +105,13 @@ void setup() {
                 ae::CreateWith{context.domain()}.with_id(ae::GlobalId::kUap),
                 context.aether(),
                 std::initializer_list{
-                    ae::Interval{ae::IntervalType::kSendReceive,
-                                 std::chrono::seconds{60}},
-                    ae::Interval{ae::IntervalType::kSendOnly,
-                                 std::chrono::seconds{30}},
-                    ae::Interval{ae::IntervalType::kSendOnly,
-                                 std::chrono::seconds{30}}});
+                    ae::Interval{.type = ae::IntervalType::kSendReceive,
+                                 .duration = std::chrono::seconds{60},
+                                 .window = std::chrono::seconds{10}},
+                    ae::Interval{.type = ae::IntervalType::kSendOnly,
+                                 .duration = std::chrono::seconds{30}},
+                    ae::Interval{.type = ae::IntervalType::kSendOnly,
+                                 .duration = std::chrono::seconds{30}}});
           })
 #endif
   );
@@ -218,7 +219,7 @@ void GoToSleep(ae::Uap::Timer uap_timer) {
 #if ESP_SLEEP_MANAGER_ENABLED == 1
   // calculate time for sleep duration
   auto duration = interval.remaining();
-  std::cout << ae::Format(" >>> Sleep for {:%H:%M:%S}...\n", duration);
+  std::cout << ae::Format(" >>> Sleep for {:%S}...\n", duration);
 
   sleep_mngr.EnableTimerWakeup(
       std::chrono::duration_cast<std::chrono::microseconds>(duration).count());
