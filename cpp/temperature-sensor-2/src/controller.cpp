@@ -107,7 +107,7 @@ void setup() {
                 std::initializer_list{
                     ae::Interval{.type = ae::IntervalType::kSendReceive,
                                  .duration = std::chrono::seconds{60},
-                                 /*.window = std::chrono::seconds{10}*/},
+                                 .window = std::chrono::seconds{10}},
                     ae::Interval{.type = ae::IntervalType::kSendOnly,
                                  .duration = std::chrono::seconds{30}},
                     ae::Interval{.type = ae::IntervalType::kSendOnly,

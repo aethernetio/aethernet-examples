@@ -66,7 +66,7 @@ else()
     # 2. Specify all C files.
     #    Files should be placed into a separate directory (in this case, lp_core/),
     #    which should not be added to COMPONENT_SRCS.
-    set(ulp_lp_core_sources "lp_core/lp_main.c")
+    set(ulp_lp_core_sources "lp_core/lp_main.c" "BME68x_SensorAPI/bme68x.c")
 
     #
     # 3. List all the component source files which include automatically

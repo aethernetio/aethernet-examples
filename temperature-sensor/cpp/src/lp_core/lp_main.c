@@ -15,16 +15,18 @@
  */
 
 #include <stdint.h>
+#include <string.h>
 #include "ulp_lp_core.h"
 #include "ulp_lp_core_i2c.h"
 #include "ulp_lp_core_utils.h"
+#include "../BME68x_SensorAPI/bme68x.h"
 #include "../config.h"
 
 // Constants for SHTC3
 #define SHTC3_SLAVE_ADDR                   0x70   // I2C address [4][8]
 // Commands (16-bit, transmitted MSB first)
 #define SHTC3_CMD_WAKEUP                   0x3517 // Wake from sleep
-#define SHTC3_CMD_SLEEP                     0xB098 // Enter sleep [3][6]
+#define SHTC3_CMD_SLEEP                    0xB098 // Enter sleep [3][6]
 #define SHTC3_CMD_MEASURE                  0x7CA2 // High precision measurement [7]
 
 
@@ -34,7 +36,7 @@
 #define STCC4_CMD_MEASURE_SINGLE_SHOT      0x2C1F // Command for single shot measurement
 #define STCC4_CMD_MEASURE_CONTINUOUS       0x21B1 // Command for continuous measurement
 #define STCC4_CMD_READ_DATA                0xE000 // Command to read data
-#define STCC4_CMD_SLEEP                     0xB009 // Command to enter sleep
+#define STCC4_CMD_SLEEP                    0xB009 // Command to enter sleep
 
 // Constants for SHT45
 #define SHT45_SLAVE_ADDR                   0x44 // I2C address
@@ -46,22 +48,14 @@
 #define SHT4X_CMD_SOFT_RESET               0x94
 #define SHT4X_CMD_HEATER_OFF               0x00 // Not a direct command, but a flag
 
-// BME68X Registers
-#define BME68X_CHIP_ID                     0x61
-#define BME68X_SLAVE_ADDR                  0x77  // Or 0x76, depending on connection
-// Commands (8-bit)
-#define BME68X_REG_CHIP_ID                 0xD0
-#define BME68X_REG_RESET                   0xE0
-#define BME68X_REG_CTRL_MEAS               0xF4
-#define BME68X_REG_CTRL_HUM                0xF2
-#define BME68X_REG_CONFIG                  0xF5
-#define BME68X_REG_DATA_START              0xF7
-#define BME68X_REG_GAS_CONFIG              0x71
-#define BME68X_REG_GAS_R                    0x72
+// Constants for BME68X
+#define USE_BME68X_HEATER 1
 
 // Constants
 #define LP_I2C_TRANS_TIMEOUT_CYCLES 5000
 #define LP_I2C_TRANS_WAIT_FOREVER   -1
+
+#define nullptr ((void*)0)
 
 // Variables in RTC memory (accessible from main.c)
 uint32_t wakeup_temp_threshold;    // Threshold: XX.XX°C
@@ -101,236 +95,46 @@ static void send_command_8bit(uint8_t cmd, uint8_t slave_addr) {
     lp_core_i2c_master_write_to_device(LP_I2C_NUM_0, slave_addr, data_wr, 1, LP_I2C_TRANS_WAIT_FOREVER);
 }
 
-// Structure for BME688 calibration data
-typedef struct {
-    // Humidity  
-    uint8_t par_h1;
-    int16_t par_h2;
-    uint8_t par_h3;
-    int8_t par_h4;
-    int8_t par_h5;
-    uint8_t par_h6;
-    int8_t par_h7;
+static  BME68X_INTF_RET_TYPE bme_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t len, void *intf_ptr) {
+    if (intf_ptr == nullptr) return BME68X_E_NULL_PTR;
+    i2c_port_t* handle_ptr = (i2c_port_t*)(intf_ptr);
+    uint8_t data_wr[1];
     
-    // Temperature
-    uint16_t par_t1;
-    int16_t par_t2;
-    int16_t par_t3;
-    
-    // Pressure
-    uint16_t par_p1;
-    int16_t par_p2;
-    int16_t par_p3;
-    int16_t par_p4;
-    int16_t par_p5;
-    int16_t par_p6;
-    int16_t par_p7;
-    int16_t par_p8;
-    int16_t par_p9;
-    uint8_t par_p10;
-    
-    /*! Variable to store the intermediate temperature coefficient */
-    int32_t t_fine;
-
-    /*! Heater resistance range coefficient */
-    uint8_t res_heat_range;
-
-    /*! Heater resistance value coefficient */
-    int8_t res_heat_val;
-
-    /*! Gas resistance range switching error coefficient */
-    int8_t range_sw_err;
-} bme688_calib_t;
-
-// Variable to store calibration data
-static bme688_calib_t calib;
-
-// Read calibration data
-static int read_calibration_data(uint8_t *calib_data, uint8_t size) {
-    uint8_t reg = 0x8A;  // Start address of calibration data
-    
-    // Write register address for reading
-    int ret = lp_core_i2c_master_write_to_device(LP_I2C_NUM_0, BME68X_SLAVE_ADDR, 
-                                                &reg, 1, LP_I2C_TRANS_TIMEOUT_CYCLES);
-    if (ret) return ret;
-    
-    // Read calibration data
-    return lp_core_i2c_master_read_from_device(LP_I2C_NUM_0, BME68X_SLAVE_ADDR, 
-                                              &calib_data[0], size - 16, 
-                                              LP_I2C_TRANS_TIMEOUT_CYCLES);
-    
-    reg = 0xE1;  // Start address of calibration data
-    
-    // Write register address for reading
-    ret = lp_core_i2c_master_write_to_device(LP_I2C_NUM_0, BME68X_SLAVE_ADDR, 
-                                                &reg, 1, LP_I2C_TRANS_TIMEOUT_CYCLES);
-    if (ret) return ret;
-    
-    // Read calibration data
-    return lp_core_i2c_master_read_from_device(LP_I2C_NUM_0, BME68X_SLAVE_ADDR, 
-                                              &calib_data[26], 16, 
-                                              LP_I2C_TRANS_TIMEOUT_CYCLES);
-}
-
-// Function to parse calibration data
-void parse_calibration_data(uint8_t *calib_data) {
-    // Temperature
-    calib.par_t1 = (uint16_t)((calib_data[1] << 8) | calib_data[0]);
-    calib.par_t2 = (int16_t)((calib_data[3] << 8) | calib_data[2]);
-    calib.par_t3 = (int16_t)((calib_data[5] << 8) | calib_data[4]);
-    
-    // Pressure
-    calib.par_p1 = (uint16_t)((calib_data[7] << 8) | calib_data[6]);
-    calib.par_p2 = (int16_t)((calib_data[9] << 8) | calib_data[8]);
-    calib.par_p3 = (int16_t)((calib_data[11] << 8) | calib_data[10]);
-    calib.par_p4 = (int16_t)((calib_data[13] << 8) | calib_data[12]);
-    calib.par_p5 = (int16_t)((calib_data[15] << 8) | calib_data[14]);
-    calib.par_p6 = (int16_t)((calib_data[17] << 8) | calib_data[16]);
-    calib.par_p7 = (int16_t)((calib_data[19] << 8) | calib_data[18]);
-    calib.par_p8 = (int16_t)((calib_data[21] << 8) | calib_data[20]);
-    calib.par_p9 = (uint8_t)((calib_data[23] << 8) | calib_data[22]);
-    
-    // Humidity
-    calib.par_h1 = (uint8_t)(calib_data[25]);
-    calib.par_h2 = (int16_t)((calib_data[26] << 8) | calib_data[27]);
-    calib.par_h3 = (uint8_t)(calib_data[28]);
-    calib.par_h4 = (int8_t)((calib_data[29] << 4) | (calib_data[30] & 0x0F));
-    calib.par_h5 = (int8_t)((calib_data[31] << 4) | ((calib_data[30] >> 4) & 0x0F));
-    calib.par_h6 = (uint8_t)(calib_data[32]);
-    calib.par_h7 = (int8_t)(calib_data[33]);
-}
-
-// Temperature compensation
-/* @brief This internal API is used to calculate the temperature value. */
-static int16_t compensate_temperature(uint32_t temp_adc)
-{
-    int64_t var1;
-    int64_t var2;
-    int64_t var3;
-    int16_t calc_temp;
-
-    /*lint -save -e701 -e702 -e704 */
-    var1 = ((int32_t)temp_adc >> 3) - ((int32_t)calib.par_t1 << 1);
-    var2 = (var1 * (int32_t)calib.par_t2) >> 11;
-    var3 = ((var1 >> 1) * (var1 >> 1)) >> 12;
-    var3 = ((var3) * ((int32_t)calib.par_t3 << 4)) >> 14;
-    calib.t_fine = (int32_t)(var2 + var3);
-    calc_temp = (int16_t)(((calib.t_fine * 5) + 128) >> 8);
-
-    /*lint -restore */
-    return calc_temp;
-}
-
-// Pressure compensation
-uint32_t compensate_pressure(uint32_t pres_adc) {
-    int32_t var1;
-    int32_t var2;
-    int32_t var3;
-    int32_t pressure_comp;
-
-    /* This value is used to check precedence to multiplication or division
-     * in the pressure compensation equation to achieve least loss of precision and
-     * avoiding overflows.
-     * i.e Comparing value, pres_ovf_check = (1 << 31) >> 1
-     */
-    const int32_t pres_ovf_check = INT32_C(0x40000000);
-
-    /*lint -save -e701 -e702 -e713 */
-    var1 = (((int32_t)calib.t_fine) >> 1) - 64000;
-    var2 = ((((var1 >> 2) * (var1 >> 2)) >> 11) * (int32_t)calib.par_p6) >> 2;
-    var2 = var2 + ((var1 * (int32_t)calib.par_p5) << 1);
-    var2 = (var2 >> 2) + ((int32_t)calib.par_p4 << 16);
-    var1 = (((((var1 >> 2) * (var1 >> 2)) >> 13) * ((int32_t)calib.par_p3 << 5)) >> 3) +
-           (((int32_t)calib.par_p2 * var1) >> 1);
-    var1 = var1 >> 18;
-    var1 = ((32768 + var1) * (int32_t)calib.par_p1) >> 15;
-    pressure_comp = 1048576 - pres_adc;
-    pressure_comp = (int32_t)((pressure_comp - (var2 >> 12)) * ((uint32_t)3125));
-    if (pressure_comp >= pres_ovf_check)
-    {
-        pressure_comp = ((pressure_comp / var1) << 1);
+    data_wr[0] = reg_addr;
+    // Для I2C чтения с ESP32: записываем адрес регистра, затем читаем данные
+    esp_err_t ret = lp_core_i2c_master_write_read_device(*handle_ptr, BME68X_I2C_ADDR_HIGH,
+                                                        data_wr, 1,
+                                                        reg_data, len,
+                                                        LP_I2C_TRANS_WAIT_FOREVER);
+    if (ret != ESP_OK) {
+        return BME68X_E_COM_FAIL;
     }
-    else
-    {
-        pressure_comp = ((pressure_comp << 1) / var1);
-    }
-
-    var1 = ((int32_t)calib.par_p9 * (int32_t)(((pressure_comp >> 3) * (pressure_comp >> 3)) >> 13)) >> 12;
-    var2 = ((int32_t)(pressure_comp >> 2) * (int32_t)calib.par_p8) >> 13;
-    var3 =
-        ((int32_t)(pressure_comp >> 8) * (int32_t)(pressure_comp >> 8) * (int32_t)(pressure_comp >> 8) *
-         (int32_t)calib.par_p10) >> 17;
-    pressure_comp = (int32_t)(pressure_comp) + ((var1 + var2 + var3 + ((int32_t)calib.par_p7 << 7)) >> 4);
-
-    /*lint -restore */
-    return (uint32_t)pressure_comp;
+    return BME68X_OK;
 }
 
-// Humidity compensation
-uint32_t compensate_humidity(uint32_t hum_adc) {
-    int32_t var1;
-    int32_t var2;
-    int32_t var3;
-    int32_t var4;
-    int32_t var5;
-    int32_t var6;
-    int32_t temp_scaled;
-    int32_t calc_hum;
+static BME68X_INTF_RET_TYPE bme_i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t len, void *intf_ptr) {
+    if (intf_ptr == nullptr) return BME68X_E_NULL_PTR;
+    i2c_port_t* handle_ptr = (i2c_port_t*)(intf_ptr);
 
-    /*lint -save -e702 -e704 */
-    temp_scaled = (((int32_t)calib.t_fine * 5) + 128) >> 8;
-    var1 = (int32_t)(hum_adc - ((int32_t)((int32_t)calib.par_h1 * 16))) -
-           (((temp_scaled * (int32_t)calib.par_h3) / ((int32_t)100)) >> 1);
-    var2 =
-        ((int32_t)calib.par_h2 *
-         (((temp_scaled * (int32_t)calib.par_h4) / ((int32_t)100)) +
-          (((temp_scaled * ((temp_scaled * (int32_t)calib.par_h5) / ((int32_t)100))) >> 6) / ((int32_t)100)) +
-          (int32_t)(1 << 14))) >> 10;
-    var3 = var1 * var2;
-    var4 = (int32_t)calib.par_h6 << 7;
-    var4 = ((var4) + ((temp_scaled * (int32_t)calib.par_h7) / ((int32_t)100))) >> 4;
-    var5 = ((var3 >> 14) * (var3 >> 14)) >> 10;
-    var6 = (var4 * var5) >> 1;
-    calc_hum = (((var3 + var6) >> 10) * ((int32_t)1000)) >> 12;
-    if (calc_hum > 100000) /* Cap at 100%rH */
-    {
-        calc_hum = 100000;
-    }
-    else if (calc_hum < 0)
-    {
-        calc_hum = 0;
-    }
+    // Подготавливаем буфер: адрес регистра + данные
+    uint8_t write_buf[len + 1];
+    if (write_buf == nullptr) return BME68X_E_NULL_PTR;
+    write_buf[0] = reg_addr;
+    memcpy(&write_buf[1], reg_data, len);
 
-    /*lint -restore */
-    return (uint32_t)calc_hum;
+    esp_err_t ret = lp_core_i2c_master_write_to_device(*handle_ptr, BME68X_I2C_ADDR_HIGH,
+                                             write_buf, len + 1,
+                                             LP_I2C_TRANS_WAIT_FOREVER);
+
+    if (ret != ESP_OK) {
+        return BME68X_E_COM_FAIL;
+    }
+    return BME68X_OK;
 }
 
-// Gas resistance compensation
-uint32_t compensate_gas(uint16_t raw_gas, uint8_t gas_range) {
-    int64_t var1;
-    uint64_t var2;
-    int64_t var3;
-    uint32_t calc_gas_res;
-    uint32_t lookup_table1[16] = {
-        UINT32_C(2147483647), UINT32_C(2147483647), UINT32_C(2147483647), UINT32_C(2147483647), UINT32_C(2147483647),
-        UINT32_C(2126008810), UINT32_C(2147483647), UINT32_C(2130303777), UINT32_C(2147483647), UINT32_C(2147483647),
-        UINT32_C(2143188679), UINT32_C(2136746228), UINT32_C(2147483647), UINT32_C(2126008810), UINT32_C(2147483647),
-        UINT32_C(2147483647)
-    };
-    uint32_t lookup_table2[16] = {
-        UINT32_C(4096000000), UINT32_C(2048000000), UINT32_C(1024000000), UINT32_C(512000000), UINT32_C(255744255),
-        UINT32_C(127110228), UINT32_C(64000000), UINT32_C(32258064), UINT32_C(16016016), UINT32_C(8000000), UINT32_C(
-            4000000), UINT32_C(2000000), UINT32_C(1000000), UINT32_C(500000), UINT32_C(250000), UINT32_C(125000)
-    };
-
-    /*lint -save -e704 */
-    var1 = (int64_t)((1340 + (5 * (int64_t)calib.range_sw_err)) * ((int64_t)lookup_table1[gas_range])) >> 16;
-    var2 = (((int64_t)((int64_t)raw_gas << 15) - (int64_t)(16777216)) + var1);
-    var3 = (((int64_t)lookup_table2[gas_range] * (int64_t)var1) >> 9);
-    calc_gas_res = (uint32_t)((var3 + ((int64_t)var2 >> 1)) / (int64_t)var2);
-
-    /*lint -restore */
-    return calc_gas_res;
+static void bme_delay_us(uint32_t period, void *intf_ptr) {
+    if (intf_ptr == nullptr) return;
+    ulp_lp_core_delay_us(period);
 }
 
 int main(void) {
@@ -430,92 +234,90 @@ int main(void) {
     }  
 #endif
 #if BOARD_HAS_BME68X == 1
-    // BME68X requires initialization at first start
-    static uint8_t bme68x_initialized = 0;
-    
-    if (!bme68x_initialized) {
-        // Check Chip ID
-        uint8_t reg = BME68X_REG_CHIP_ID;
-        ret = lp_core_i2c_master_write_to_device(LP_I2C_NUM_0, BME68X_SLAVE_ADDR, &reg, 1, LP_I2C_TRANS_TIMEOUT_CYCLES);
-        if (ret == ESP_OK) {
-            uint8_t chip_id;
-            ret = lp_core_i2c_master_read_from_device(LP_I2C_NUM_0, BME68X_SLAVE_ADDR, &chip_id, 1, LP_I2C_TRANS_TIMEOUT_CYCLES);
-            if (ret == ESP_OK && chip_id == BME68X_CHIP_ID) {
-                // Reset sensor
-                uint8_t reset_cmd[2] = {BME68X_REG_RESET, 0xB6};
-                ret = lp_core_i2c_master_write_to_device(LP_I2C_NUM_0, BME68X_SLAVE_ADDR, reset_cmd, 2, LP_I2C_TRANS_TIMEOUT_CYCLES);
-                
-                // Delay after reset
-                ulp_lp_core_delay_us(10000); // 10 ms
-                
-                // Configure operating mode
-                // Gas sensor configuration
-                uint8_t gas_config[2] = {BME68X_REG_GAS_CONFIG, 0x00}; // Default gas settings
-                ret = lp_core_i2c_master_write_to_device(LP_I2C_NUM_0, BME68X_SLAVE_ADDR, gas_config, 2, LP_I2C_TRANS_TIMEOUT_CYCLES);
-                
-                // Humidity configuration (oversampling x1)
-                uint8_t ctrl_hum[2] = {BME68X_REG_CTRL_HUM, 0x01};
-                ret = lp_core_i2c_master_write_to_device(LP_I2C_NUM_0, BME68X_SLAVE_ADDR, ctrl_hum, 2, LP_I2C_TRANS_TIMEOUT_CYCLES);
-                
-                bme68x_initialized = 1;
-            }
+    // BME68X Code there
+    static struct bme68x_dev bme;
+    static struct bme68x_conf conf;
+    static struct bme68x_heatr_conf heater_conf;
+    static uint8_t dev_addr = BME68X_I2C_ADDR_LOW;
+    struct bme68x_data data;
+    bool bme68x_initialized = true;
+    i2c_port_t lp_i2c = LP_I2C_NUM_0;
+
+    // Static Initialization Block (Runs once)
+    // Initialize BME Sensor
+    bme.read = bme_i2c_read;
+    bme.write = bme_i2c_write;
+    bme.intf = BME68X_I2C_INTF;
+    bme.delay_us = bme_delay_us;
+    bme.intf_ptr = &lp_i2c;
+    bme.amb_temp = 25;
+
+    if (bme68x_init(&bme) != BME68X_OK) {
+        dev_addr = BME68X_I2C_ADDR_HIGH;  // Try alternate address
+        if (bme68x_init(&bme) != BME68X_OK) {
+            bme68x_initialized = false;
         }
     }
-    
+
+#if USE_BME68X_HEATER == 1
+    // Setting up the gas sensor (optional)
+    heater_conf.enable = BME68X_ENABLE,
+    heater_conf.heatr_temp = 300;  // Температура нагревателя в градусах Цельсия
+    heater_conf.heatr_dur = 100;   // Длительность нагрева в миллисекундах
+    heater_conf.heatr_temp_prof = nullptr;
+    heater_conf.heatr_dur_prof = nullptr;
+    heater_conf.profile_len = 0;
+    heater_conf.shared_heatr_dur = 100;
+
+    bme68x_set_heatr_conf(BME68X_PARALLEL_MODE, &heater_conf, &bme);
+#endif
+
     if (bme68x_initialized) {
-        // Start measurement in forced mode
-        uint8_t meas_cmd[2] = {BME68X_REG_CTRL_MEAS, 0x25}; // 0b00100101: oversampling temp x1, press x1, forced mode
-        ret = lp_core_i2c_master_write_to_device(LP_I2C_NUM_0, BME68X_SLAVE_ADDR, meas_cmd, 2, LP_I2C_TRANS_TIMEOUT_CYCLES);
-        
-        // Measurement waiting time (~10 ms for oversampling x1)
-        ulp_lp_core_delay_us(15000); // 15 ms
-        
-        // Read data: temperature (3 bytes), pressure (3 bytes), humidity (2 bytes)
-        uint8_t data_reg = BME68X_REG_DATA_START;
-        ret = lp_core_i2c_master_write_to_device(LP_I2C_NUM_0, BME68X_SLAVE_ADDR, &data_reg, 1, LP_I2C_TRANS_TIMEOUT_CYCLES);
-        
-        uint8_t data_rd[8];
-        ret = lp_core_i2c_master_read_from_device(LP_I2C_NUM_0, BME68X_SLAVE_ADDR, data_rd, sizeof(data_rd), LP_I2C_TRANS_TIMEOUT_CYCLES);
-        
-        if (ret == ESP_OK) {
-            // Raw data
-            uint32_t raw_temp = ((uint32_t)data_rd[3] << 12) | ((uint32_t)data_rd[4] << 4) | ((uint32_t)data_rd[5] >> 4);
-            uint32_t raw_press = ((uint32_t)data_rd[0] << 12) | ((uint32_t)data_rd[1] << 4) | ((uint32_t)data_rd[2] >> 4);
-            uint32_t raw_hum = ((uint32_t)data_rd[6] << 8) | data_rd[7];
-            
-            uint8_t calib_data[42];
-            ret = read_calibration_data(calib_data, 42);
-            parse_calibration_data(calib_data);
-            
-            if (ret == ESP_OK) {
-                // Compensation using calibration data
-                int32_t temp_x100 = compensate_temperature(raw_temp);
-                uint32_t press_x100 = compensate_pressure(raw_press);
-                uint32_t hum_x1000 = compensate_humidity(raw_hum);
+        // 3. Configure Sensor
+        conf.filter = BME68X_FILTER_OFF;
+        conf.odr = BME68X_ODR_NONE;
+        conf.os_hum = BME68X_OS_NONE;
+        conf.os_pres = BME68X_OS_NONE;
+        conf.os_temp = BME68X_OS_2X;
+        bme68x_set_conf(&conf, &bme);
 
-                // Save latest values
-                last_bme68x_temperature = temp_x100;
-                last_bme68x_pressure = press_x100;
-                last_bme68x_humidity = hum_x1000;
-            }
+       if (bme68x_set_op_mode(BME68X_FORCED_MODE, &bme) != BME68X_OK) bme68x_initialized = false;
 
-            // Read gas sensor (if available)
-            uint8_t gas_reg = BME68X_REG_GAS_R;
-            ret = lp_core_i2c_master_write_to_device(LP_I2C_NUM_0, BME68X_SLAVE_ADDR, &gas_reg, 1, LP_I2C_TRANS_TIMEOUT_CYCLES);
-            
-            uint8_t gas_data[2];
-            ret = lp_core_i2c_master_read_from_device(LP_I2C_NUM_0, BME68X_SLAVE_ADDR, gas_data, 2, LP_I2C_TRANS_TIMEOUT_CYCLES);
-            
-            if (ret == ESP_OK) {
-                uint16_t gas_raw = (gas_data[0] << 2) | (gas_data[1] >> 6);
-                uint8_t gas_range = gas_data[1] & 0x0F;
-                
-                uint32_t gas_resistance = compensate_gas(gas_raw, gas_range);
-                
-                last_bme68x_gas_resistance = gas_raw * 1000;
-            }
+        // Wait for measurement
+        uint32_t del_period = bme68x_get_meas_dur(BME68X_FORCED_MODE, &conf, &bme);
+        bme.delay_us(del_period, bme.intf_ptr);
+
+        // Read Data
+        struct bme68x_data data;
+        uint8_t n_fields;
+        if (!(bme68x_get_data(BME68X_FORCED_MODE, &data, &n_fields, &bme) ==
+                BME68X_OK &&
+            n_fields > 0)) {
+            bme68x_initialized = false;
         }
     }
+
+    if (bme68x_initialized) {
+      // Trigger measurement
+      if (bme68x_set_op_mode(BME68X_FORCED_MODE, &bme) != BME68X_OK) bme68x_initialized = false;
+       
+      // Wait for measurement
+      uint32_t del_period = bme68x_get_meas_dur(BME68X_FORCED_MODE, &conf, &bme);
+      bme.delay_us(del_period, bme.intf_ptr);
+
+      // Read Data      
+      uint8_t n_fields;
+      if (bme68x_get_data(BME68X_FORCED_MODE, &data, &n_fields, &bme) ==
+          BME68X_OK && n_fields == 0) {
+        bme68x_initialized = false;    
+      }
+    }
+
+    // Save latest values
+    last_bme68x_temperature = data.temperature * 100;
+    last_bme68x_pressure = data.pressure * 100;
+    last_bme68x_humidity = data.humidity * 1000;
+    last_bme68x_gas_resistance = data.gas_resistance;
 
     // Decision to wake up the HP core based on temperature or gas
     if (bme68x_initialized) {
