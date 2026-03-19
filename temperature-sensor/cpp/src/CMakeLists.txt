@@ -44,11 +44,9 @@ else()
     #ESP32 CMake
     idf_component_register(SRCS ${src_list} ${esp_src_list}
       INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
-      REQUIRES led_strip
+      REQUIRES led_strip soc ulp
       PRIV_REQUIRES
-        aether
-        soc
-        ulp
+        aether        
         esp_driver_tsens
         esp_driver_gpio
         esp_http_server

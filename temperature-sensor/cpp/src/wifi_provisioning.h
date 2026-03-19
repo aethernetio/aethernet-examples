@@ -33,10 +33,12 @@
 #endif
 
 #if not defined STATUS_LED_PIN
-#  define STATUS_LED_PIN GPIO_NUM_35
+//#  define STATUS_LED_PIN GPIO_NUM_35
+#  define STATUS_LED_PIN GPIO_NUM_8
 #endif
 #if not defined RESET_BUTTON_PIN
-#  define RESET_BUTTON_PIN GPIO_NUM_41
+//#  define RESET_BUTTON_PIN GPIO_NUM_41
+#  define RESET_BUTTON_PIN GPIO_NUM_9
 #endif
 
 /**

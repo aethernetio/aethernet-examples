@@ -20,7 +20,8 @@
 #include "ulp_lp_core_i2c.h"
 #include "ulp_lp_core_utils.h"
 #include "../BME68x_SensorAPI/bme68x.h"
-#include "../config.h"
+
+#define BOARD_HAS_BME68X 1
 
 // Constants for SHTC3
 #define SHTC3_SLAVE_ADDR                   0x70   // I2C address [4][8]
