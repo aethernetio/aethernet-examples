@@ -39,7 +39,7 @@ static const char *TAG_MAIN = "BME68X";
 #  include <ulp_lp_core.h>
 #  include <lp_core_i2c.h>
 #  include <esp_sleep.h>
-#  include "lp_core_src.h"
+#  include "ulp_main.h"
 static esp_sleep_wakeup_cause_t cause{ESP_SLEEP_WAKEUP_UNDEFINED};
 #endif
 
@@ -111,8 +111,8 @@ struct Context {
 static Context context{};
 
 #if BOARD_HAS_ULP == 1
-extern const uint8_t lp_core_src_bin_start[] asm("_binary_lp_core_src_bin_start");
-extern const uint8_t lp_core_src_bin_end[] asm("_binary_lp_core_src_bin_end");
+extern const uint8_t ulp_main_bin_start[] asm("_binary_ulp_main_bin_start");
+extern const uint8_t ulp_main_bin_end[] asm("_binary_ulp_main_bin_end");
 
 static void lp_core_init(void);
 static void lp_i2c_init(void);
@@ -463,7 +463,7 @@ static void lp_core_init(void) {
                            .lp_timer_sleep_duration_us = 1000000};
 
   ret = ulp_lp_core_load_binary(
-      lp_core_src_bin_start, (lp_core_src_bin_end - lp_core_src_bin_start));
+      ulp_main_bin_start, (ulp_main_bin_end - ulp_main_bin_start));
   if (ret != ESP_OK) {
     ESP_LOGI(TAG_MAIN, "LP Core load failed!");
     abort();
@@ -477,6 +477,14 @@ static void lp_core_init(void) {
 
   ESP_LOGI(TAG_MAIN, "LP core loaded with firmware successfully!");
 }
+
+#ifndef LP_I2C_SDA_IO
+    #define LP_I2C_SDA_IO  GPIO_NUM_6
+#endif
+
+#ifndef LP_I2C_SCL_IO
+    #define LP_I2C_SCL_IO  GPIO_NUM_7
+#endif
 
 static void lp_i2c_init(void) {
   esp_err_t ret = ESP_OK;

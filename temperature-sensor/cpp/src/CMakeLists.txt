@@ -24,6 +24,11 @@ list(APPEND esp_src_list
   "BME68x_SensorAPI/bme68x.c"
 )
 
+list(APPEND ulp_src_list
+  "../ulp/main.c"
+  "../ulp/bme68x.c"
+)
+
 if(NOT CM_PLATFORM)
   project("temperature-sensor-app" VERSION "1.0.0" LANGUAGES C CXX)
 
@@ -59,12 +64,12 @@ else()
     # ULP support additions to component CMakeLists.txt.
     #
     # 1. The LP Core app name must be unique (if multiple components use LP Core).
-    set(ulp_app_name lp_core_${COMPONENT_NAME})
+    set(ulp_app_name ulp_main)
     #
     # 2. Specify all C files.
-    #    Files should be placed into a separate directory (in this case, lp_core/),
+    #    Files should be placed into a separate directory (in this case, ulp/),
     #    which should not be added to COMPONENT_SRCS.
-    set(ulp_lp_core_sources "lp_core/lp_main.c" "BME68x_SensorAPI/bme68x.c")
+    set(ulp_lp_core_sources ${ulp_src_list})
 
     #
     # 3. List all the component source files which include automatically

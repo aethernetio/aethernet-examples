@@ -25,7 +25,7 @@
 #define BOARD_WROVER_ESP32       3
 #define BOARD_M5STACK_ATOM_LITE  4
 
-#define BOARD BOARD_AETHER_ESP32_C6
+#define BOARD BOARD_NANO_ESP32_C6
 
 // Wifi access point name
 #if not defined WP_APP_NAME

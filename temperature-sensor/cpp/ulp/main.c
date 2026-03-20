@@ -19,7 +19,7 @@
 #include "ulp_lp_core.h"
 #include "ulp_lp_core_i2c.h"
 #include "ulp_lp_core_utils.h"
-#include "../BME68x_SensorAPI/bme68x.h"
+#include "BME68x_SensorAPI/bme68x.h"
 
 #define BOARD_HAS_BME68X 1
 
