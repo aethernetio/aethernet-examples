@@ -40,7 +40,7 @@
 
 // --- CONFIGURATION ---
 
-#  ifdef ESP_M5STACK_ATOM_LITE
+#  if BOARD_HAS_LED == 1
 #    include "led_strip.h"
 #  endif
 
@@ -54,7 +54,7 @@ struct WifiCreds {
 // Hardcoded device ID for wizard linking
 static char device_uuid[37] = "58a0981f-5bad-4fa4-bb2a-cd2aa26e1b3a";
 
-#  ifdef ESP_M5STACK_ATOM_LITE
+#  if BOARD_HAS_LED == 1
 static led_strip_handle_t led_strip;
 #  endif
 
@@ -106,7 +106,7 @@ std::optional<WifiCreds> GetSavedCredentials() {
 
 // --- LED LOGIC ---
 static void SetLed(bool on, uint32_t r, uint32_t g, uint32_t b) {
-#  ifdef ESP_M5STACK_ATOM_LITE
+#  if BOARD_HAS_LED
   if (!led_strip) {
     return;
   }
@@ -122,7 +122,7 @@ static void SetLed(bool on, uint32_t r, uint32_t g, uint32_t b) {
 }
 
 void LedTask(void* pvParameters) {
-#  ifdef ESP_M5STACK_ATOM_LITE
+#  if BOARD_HAS_LED
   led_strip_config_t strip_config = {};
   strip_config.strip_gpio_num = STATUS_LED_PIN;
   strip_config.max_leds = 1;

@@ -40,7 +40,7 @@ static const char *TAG_MAIN = "BME68X";
 #  include <lp_core_i2c.h>
 #  include <esp_sleep.h>
 #  include "lp_core_src.h"
-static bool reset_from_ulp = false;
+static esp_sleep_wakeup_cause_t cause{ESP_SLEEP_WAKEUP_UNDEFINED};
 #endif
 
 /*
@@ -120,12 +120,8 @@ static void lp_goto_sleep(void);
 #endif
 
 void setup() {
-  esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
-  if (cause == ESP_SLEEP_WAKEUP_ULP) {
-    reset_from_ulp = true;
-  } else {
-    reset_from_ulp = false;
-  }
+  cause = esp_sleep_get_wakeup_cause();
+
   // create an app
   context.aether_app = ae::AetherApp::Construct(ae::AetherAppContext{});
 
@@ -275,11 +271,13 @@ void RemoveStreams() {
 
 #if BOARD_HAS_ULP == 1
 float ReadTemperature() {
-  if (reset_from_ulp == true) {
+  if (cause == ESP_SLEEP_WAKEUP_ULP) {
+    std::cout << ">> ULP " << "\n";
     float value = static_cast<float>(ulp_last_bme68x_temperature) / 100;
     return value;
   } else {
     // get random value as temperature
+    std::cout << ">> RND " << "\n";
     static bool seed = (std::srand(std::time(nullptr)), true);
     (void)seed;
     static float last_value = 20.F;
@@ -291,24 +289,13 @@ float ReadTemperature() {
 }
 #elif defined ESP_PLATFORM && \
     (SOC_TEMPERATURE_SENSOR_INTR_SUPPORT || SOC_TEMP_SENSOR_SUPPORTED)
-#  ifdef ESP_M5STACK_ATOM_LITE
+#  if BOARD_HAS_BME688 == 1
 #    include "driver/i2c.h"
 #    include "BME68x_SensorAPI/bme68x.h"
 #    include <cstring>
 #    include "esp_log.h"
 
-// --- Hardware Settings ---
-#    define BME_I2C_NUM I2C_NUM_0
-#    define BME_SDA_PIN 2
-#    define BME_SCL_PIN 1
-#    define BME_ADDR 0x77
-
 // --- SAFER Interface Functions ---
-
-// FIX 1: Use a Fixed Buffer instead of VLA (Variable Length Array) to prevent
-// stack smash
-#    define MAX_I2C_BUFFER 64
-
 static BME68X_INTF_RET_TYPE bme_i2c_read(uint8_t reg_addr, uint8_t* reg_data,
                                          uint32_t len, void* intf_ptr) {
   uint8_t dev_addr = *(uint8_t*)intf_ptr;
@@ -348,7 +335,7 @@ static void bme_delay_us(uint32_t period, void* intf_ptr) {
 float ReadTemperature() {
   static struct bme68x_dev bme;
   static struct bme68x_conf conf;
-  static uint8_t dev_addr = BME_ADDR;
+  static uint8_t dev_addr = BME68X_I2C_ADDR_HIGH;
 
   // Static Initialization Block (Runs once)
   static bool initialized = []() {
@@ -363,6 +350,7 @@ float ReadTemperature() {
         .clk_flags = 0,
     };
 
+    std::cout << ">> BME " << "\n";
     // Prevent re-install crash if I2C is already used elsewhere
     if (i2c_param_config(BME_I2C_NUM, &i2c_conf) != ESP_OK) return false;
     if (i2c_driver_install(BME_I2C_NUM, i2c_conf.mode, 0, 0, 0) != ESP_OK)
@@ -431,7 +419,7 @@ float ReadTemperature() {
   ESP_ERROR_CHECK(temperature_sensor_get_celsius(temp_sensor, &value));
   return value;
 }
-#  endif  // ESP_M5STACK_ATOM_LITE
+#  endif  // BOARD_HAS_BME688 == 1
 #else
 float ReadTemperature() {
   // get random value as temperature
