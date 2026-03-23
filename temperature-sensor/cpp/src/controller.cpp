@@ -27,6 +27,8 @@
 #if defined ESP_PLATFORM
 #  include <soc/soc_caps.h>
 #  include <driver/temperature_sensor.h>
+#  include <freertos/freertos.h>
+#  include <freertos/task.h>
 #  include <esp_log.h>
 #  define BOARD_HAS_ULP 1
 static const char *TAG_MAIN = "BME68X";
@@ -516,7 +518,11 @@ static void lp_goto_sleep(void) {
   lp_i2c_init();
   /* Load LP Core binary and start the coprocessor */
   lp_core_init();
+  
+  vTaskDelay(pdMS_TO_TICKS(1));
+  
   ulp_wakeup_temp_threshold = 2000;  // Threshold: 20.00°C
+  ulp_can_start = 1;
   
   esp_sleep_enable_ulp_wakeup();
   esp_deep_sleep_start();

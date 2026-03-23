@@ -59,9 +59,9 @@
 #define nullptr ((void*)0)
 
 // Variables in RTC memory (accessible from main.c)
-uint32_t wakeup_temp_threshold;    // Threshold: XX.XX°C
-uint32_t wakeup_co2_threshold;     // Threshold: XXX ppm
-uint16_t wakeup_gas_threshold;     // Threshold: Gas
+volatile uint32_t wakeup_temp_threshold;    // Threshold: XX.XX°C
+volatile uint32_t wakeup_co2_threshold;     // Threshold: XXX ppm
+volatile uint16_t wakeup_gas_threshold;     // Threshold: Gas
 // Variables to store latest values
 uint32_t last_sht45_temperature;   // Temperature in degrees Celsius * 100 (int)
 uint32_t last_sht45_humidity;      // Humidity in %RH * 100 (int)
@@ -72,8 +72,9 @@ int32_t last_bme68x_temperature;
 int32_t last_bme68x_pressure;
 uint32_t last_bme68x_humidity;
 uint16_t last_bme68x_gas_resistance;
+volatile uint32_t can_start = 0;
 // Local variables
-static uint32_t should_wakeup;
+static bool should_wakeup = false;
 
 // I2C Buffers
 static uint8_t data_wr[2];
@@ -141,7 +142,7 @@ static void bme_delay_us(uint32_t period, void *intf_ptr) {
 int main(void) {
     esp_err_t ret;
 
-    should_wakeup = 0;
+    while(can_start == 0){asm("nop");} // Waiting main CPU
 #if BOARD_HAS_SHT45 == 1
     // SHT45 does not require a separate wakeup command
     
@@ -170,7 +171,7 @@ int main(void) {
 
     // Decision to wake up the HP core
     if (last_sht45_temperature > wakeup_temp_threshold) {
-        should_wakeup = 1;
+        should_wakeup = true;
     }
 #endif
 #if BOARD_HAS_SHTC3 == 1
@@ -210,7 +211,7 @@ int main(void) {
 
     // Decision to wake up the HP core
     if (last_shtc3_temperature > wakeup_temp_threshold) {
-        should_wakeup = 1;
+        should_wakeup = true;
     }  
 #endif
 #if BOARD_HAS_STCC4 == 1
@@ -231,7 +232,7 @@ int main(void) {
 
     // Decision to wake up the HP core
     if (last_stcc4_co2 > wakeup_co2_threshold) {
-        should_wakeup = 1;        
+        should_wakeup = true;        
     }  
 #endif
 #if BOARD_HAS_BME68X == 1
@@ -328,7 +329,7 @@ int main(void) {
         }
     }
 #endif
-    if(should_wakeup == 1){
+    if(should_wakeup){
       ulp_lp_core_wakeup_main_processor();
     }
 
