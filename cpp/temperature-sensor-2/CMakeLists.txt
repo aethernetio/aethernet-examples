@@ -24,21 +24,21 @@ if (ESP_PLATFORM OR IDF_TARGET)
   set(CM_PLATFORM "ESP32")
 endif()
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+#set(CMAKE_CXX_STANDARD 20)
+#set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # add user provided config wich will be included as regular .h file
 # Add a user-provided config file, which will be included as a regular .h file
 set(USER_CONFIG "user_config.h" CACHE PATH "" FORCE)
 # ${USER_CONFIG} must be an absolute path or a path to something listed in include directories
-include_directories(${CMAKE_CURRENT_LIST_DIR}/src)
+include_directories(${CMAKE_CURRENT_LIST_DIR}/main)
 
 if (CM_PLATFORM STREQUAL "ESP32")
   idf_build_set_property(CM_PLATFORM "ESP32")
   add_compile_definitions(CM_ESP32)
 
   list(APPEND EXTRA_COMPONENT_DIRS
-    "./src"
+    "./main"
     "./aether-client-cpp/aether")
 
   project(temperature_sensor2 LANGUAGES CXX C ASM)
@@ -47,5 +47,5 @@ else()
 
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
   add_subdirectory("./aether-client-cpp/aether" "aether")
-  add_subdirectory("./src" "temperature-sensor")
+  add_subdirectory("./main" "temperature-sensor")
 endif()
