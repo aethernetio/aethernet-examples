@@ -22,7 +22,8 @@
 #include <cstdlib>
 #include <cassert>
 #include <cstdint>
-#include "wifi_provisioning.h"
+
+#include "user_config.h"
 
 #if defined ESP_PLATFORM
 #  include <soc/soc_caps.h>
@@ -30,7 +31,6 @@
 #  include <freertos/freertos.h>
 #  include <freertos/task.h>
 #  include <esp_log.h>
-#  define BOARD_HAS_ULP 1
 static const char *TAG_MAIN = "BME68X";
 #endif
 

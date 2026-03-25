@@ -15,6 +15,7 @@
  */
 
 #include "wifi_provisioning.h"
+#include "user_config.h"
 
 #if defined ESP_PLATFORM
 
