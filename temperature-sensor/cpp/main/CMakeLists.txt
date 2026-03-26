@@ -24,6 +24,11 @@ list(APPEND esp_src_list
   "BME68x_SensorAPI/bme68x.c"
 )
 
+list(APPEND ulp_src_list
+  "../ulp/main.c"
+  "../ulp/bme68x.c"
+)
+
 if(NOT CM_PLATFORM)
   project("temperature-sensor-app" VERSION "1.0.0" LANGUAGES C CXX)
 
@@ -44,9 +49,9 @@ else()
     #ESP32 CMake
     idf_component_register(SRCS ${src_list} ${esp_src_list}
       INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
-      REQUIRES led_strip
+      REQUIRES led_strip soc ulp
       PRIV_REQUIRES
-        aether
+        aether        
         esp_driver_tsens
         esp_driver_gpio
         esp_http_server
@@ -54,6 +59,27 @@ else()
         esp_netif
         esp_hw_support
         driver)
+
+    #
+    # ULP support additions to component CMakeLists.txt.
+    #
+    # 1. The LP Core app name must be unique (if multiple components use LP Core).
+    set(ulp_app_name ulp_${COMPONENT_NAME})
+    #
+    # 2. Specify all C files.
+    #    Files should be placed into a separate directory (in this case, ulp/),
+    #    which should not be added to COMPONENT_SRCS.
+    set(ulp_lp_core_sources ${ulp_src_list})
+
+    #
+    # 3. List all the component source files which include automatically
+    #    generated LP Core export file, ${ulp_app_name}.h:
+    set(ulp_exp_dep_srcs "main.cpp")
+
+    #
+    # 4. Call function to build ULP binary and embed in project using the argument
+    #    values above.
+    ulp_embed_binary(${ulp_app_name} "${ulp_lp_core_sources}" "${ulp_exp_dep_srcs}")
 
     set(TARGET_NAME "${COMPONENT_LIB}")
     if (NOT "${WIFI_SSID}" STREQUAL "")

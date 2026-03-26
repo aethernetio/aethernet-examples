@@ -22,15 +22,29 @@
 #include <cstdlib>
 #include <cassert>
 #include <cstdint>
-#include "wifi_provisioning.h"
+
+#include "user_config.h"
 
 #if defined ESP_PLATFORM
-#  include "soc/soc_caps.h"
-#  include "driver/temperature_sensor.h"
+#  include <soc/soc_caps.h>
+#  include <driver/temperature_sensor.h>
+#  include <freertos/freertos.h>
+#  include <freertos/task.h>
+#  include <esp_log.h>
+static const char *TAG_MAIN = "BME68X";
 #endif
 
 // include Aether lib
 #include "aether/all.h"
+
+#if BOARD_HAS_ULP == 1
+#  include <ulp_lp_core.h>
+#  include <lp_core_i2c.h>
+#  include <esp_sleep.h>
+#  include "ulp_main.h"
+static esp_sleep_wakeup_cause_t cause{ESP_SLEEP_WAKEUP_UNDEFINED};
+#endif
+
 /*
  * Maximum number of records to store.
  * Maximum amount should fit into 1K bytes of message.
@@ -98,7 +112,18 @@ struct Context {
 
 static Context context{};
 
+#if BOARD_HAS_ULP == 1
+extern const uint8_t ulp_main_bin_start[] asm("_binary_ulp_main_bin_start");
+extern const uint8_t ulp_main_bin_end[] asm("_binary_ulp_main_bin_end");
+
+static void lp_core_init(void);
+static void lp_i2c_init(void);
+static void lp_goto_sleep(void);
+#endif
+
 void setup() {
+  cause = esp_sleep_get_wakeup_cause();
+
   // create an app
   context.aether_app = ae::AetherApp::Construct(ae::AetherAppContext{});
 
@@ -169,6 +194,7 @@ void loop() {
   } else {
     context.streams.clear();
     context.aether_app.Reset();
+    lp_goto_sleep();
   }
 }
 
@@ -245,26 +271,33 @@ void RemoveStreams() {
   }
 }
 
-#if defined ESP_PLATFORM && \
+#if BOARD_HAS_ULP == 1
+float ReadTemperature() {
+  if (cause == ESP_SLEEP_WAKEUP_ULP) {
+    std::cout << ">> ULP " << "\n";
+    float value = static_cast<float>(ulp_last_bme68x_temperature) / 100;
+    return value;
+  } else {
+    // get random value as temperature
+    std::cout << ">> RND " << "\n";
+    static bool seed = (std::srand(std::time(nullptr)), true);
+    (void)seed;
+    static float last_value = 20.F;
+    // get diff in range -2 to 2
+    auto diff = (static_cast<float>(std::rand() % 40) / 10.F) - 2.F;
+    auto value = last_value += diff;
+    return value;
+  }
+}
+#elif defined ESP_PLATFORM && \
     (SOC_TEMPERATURE_SENSOR_INTR_SUPPORT || SOC_TEMP_SENSOR_SUPPORTED)
-#  ifdef ESP_M5STACK_ATOM_LITE
+#  if BOARD_HAS_BME688 == 1
 #    include "driver/i2c.h"
 #    include "BME68x_SensorAPI/bme68x.h"
 #    include <cstring>
 #    include "esp_log.h"
 
-// --- Hardware Settings ---
-#    define BME_I2C_NUM I2C_NUM_0
-#    define BME_SDA_PIN 2
-#    define BME_SCL_PIN 1
-#    define BME_ADDR 0x77
-
 // --- SAFER Interface Functions ---
-
-// FIX 1: Use a Fixed Buffer instead of VLA (Variable Length Array) to prevent
-// stack smash
-#    define MAX_I2C_BUFFER 64
-
 static BME68X_INTF_RET_TYPE bme_i2c_read(uint8_t reg_addr, uint8_t* reg_data,
                                          uint32_t len, void* intf_ptr) {
   uint8_t dev_addr = *(uint8_t*)intf_ptr;
@@ -280,7 +313,7 @@ static BME68X_INTF_RET_TYPE bme_i2c_write(uint8_t reg_addr,
 
   // SAFETY CHECK: Prevent buffer overflow if driver requests too much data
   if (len > (MAX_I2C_BUFFER - 1)) {
-    ESP_LOGE("BME688", "Write length too big: %lu", len);
+    ESP_LOGE(TAG_MAIN, "Write length too big: %lu", len);
     return BME68X_E_COM_FAIL;
   }
 
@@ -304,7 +337,7 @@ static void bme_delay_us(uint32_t period, void* intf_ptr) {
 float ReadTemperature() {
   static struct bme68x_dev bme;
   static struct bme68x_conf conf;
-  static uint8_t dev_addr = BME_ADDR;
+  static uint8_t dev_addr = BME68X_I2C_ADDR_HIGH;
 
   // Static Initialization Block (Runs once)
   static bool initialized = []() {
@@ -319,6 +352,7 @@ float ReadTemperature() {
         .clk_flags = 0,
     };
 
+    std::cout << ">> BME " << "\n";
     // Prevent re-install crash if I2C is already used elsewhere
     if (i2c_param_config(BME_I2C_NUM, &i2c_conf) != ESP_OK) return false;
     if (i2c_driver_install(BME_I2C_NUM, i2c_conf.mode, 0, 0, 0) != ESP_OK)
@@ -387,7 +421,7 @@ float ReadTemperature() {
   ESP_ERROR_CHECK(temperature_sensor_get_celsius(temp_sensor, &value));
   return value;
 }
-#  endif  // ESP_M5STACK_ATOM_LITE
+#  endif  // BOARD_HAS_BME688 == 1
 #else
 float ReadTemperature() {
   // get random value as temperature
@@ -422,3 +456,75 @@ std::vector<PackedRecord> RequestRecords(std::uint16_t count) {
   }
   return packed_data;
 }
+
+#if BOARD_HAS_ULP == 1
+static void lp_core_init(void) {
+  esp_err_t ret = ESP_OK;
+
+  ulp_lp_core_cfg_t cfg = {.wakeup_source = ULP_LP_CORE_WAKEUP_SOURCE_LP_TIMER,
+                           .lp_timer_sleep_duration_us = 1000000};
+
+  ret = ulp_lp_core_load_binary(
+      ulp_main_bin_start, (ulp_main_bin_end - ulp_main_bin_start));
+  if (ret != ESP_OK) {
+    ESP_LOGI(TAG_MAIN, "LP Core load failed!");
+    abort();
+  }
+
+  ret = ulp_lp_core_run(&cfg);
+  if (ret != ESP_OK) {
+    ESP_LOGI(TAG_MAIN, "LP Core run failed!");
+    abort();
+  }
+
+  ESP_LOGI(TAG_MAIN, "LP core loaded with firmware successfully!");
+}
+
+#ifndef LP_I2C_SDA_IO
+    #define LP_I2C_SDA_IO  GPIO_NUM_6
+#endif
+
+#ifndef LP_I2C_SCL_IO
+    #define LP_I2C_SCL_IO  GPIO_NUM_7
+#endif
+
+static void lp_i2c_init(void) {
+  esp_err_t ret = ESP_OK;
+
+  /* Initialize LP I2C with default configuration */
+  lp_core_i2c_cfg_t i2c_cfg{};
+  lp_core_i2c_timing_cfg_t i2c_timing_cfg{};
+
+  i2c_timing_cfg.clk_speed_hz = 100000;
+
+  i2c_cfg.i2c_pin_cfg.sda_io_num = LP_I2C_SDA_IO;
+  i2c_cfg.i2c_pin_cfg.scl_io_num = LP_I2C_SCL_IO;
+  i2c_cfg.i2c_pin_cfg.sda_pullup_en = true;
+  i2c_cfg.i2c_pin_cfg.scl_pullup_en = true;
+  i2c_cfg.i2c_timing_cfg = i2c_timing_cfg;
+  i2c_cfg.i2c_src_clk = LP_I2C_SCLK_LP_FAST;
+
+  ret = lp_core_i2c_master_init(LP_I2C_NUM_0, &i2c_cfg);
+  if (ret != ESP_OK) {
+    ESP_LOGI(TAG_MAIN, "LP I2C init failed!");
+    abort();
+  }
+
+  ESP_LOGI(TAG_MAIN, "LP I2C initialized successfully!");
+}
+
+static void lp_goto_sleep(void) {
+  /* Initialize LP_I2C from the main processor */
+  lp_i2c_init();
+  /* Load LP Core binary and start the coprocessor */
+  lp_core_init();
+  
+  vTaskDelay(pdMS_TO_TICKS(1));
+  
+  ulp_wakeup_temp_threshold = 2000;  // Threshold: 20.00°C
+  ulp_can_start = 1;
+  
+  esp_sleep_enable_ulp_wakeup();
+  esp_deep_sleep_start();
+  }
+#endif

@@ -17,8 +17,6 @@
 #ifndef WIFI_PROVISIONING_H_
 #define WIFI_PROVISIONING_H_
 
-// configs used for wifi provisioning
-#define ESP_M5STACK_ATOM_LITE
 
 // Wifi access point name
 #if not defined WP_APP_NAME
@@ -30,13 +28,6 @@
 #  define WP_REDIR_URL "https://aethernet.io"
 // TODO: add this url by config
 // "https://aethernet.io/temp_test_plain.html?id=%s";
-#endif
-
-#if not defined STATUS_LED_PIN
-#  define STATUS_LED_PIN GPIO_NUM_35
-#endif
-#if not defined RESET_BUTTON_PIN
-#  define RESET_BUTTON_PIN GPIO_NUM_41
 #endif
 
 /**
