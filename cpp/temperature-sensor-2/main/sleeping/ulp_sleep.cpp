@@ -1,0 +1,111 @@
+
+/*
+ * Copyright 2026 Aethernet Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "sleeping/sleeping.h"
+
+#include "aether/all.h"
+
+#if ULP_SLEEP == 1
+
+#  include <freertos/FreeRTOS.h>
+#  include <freertos/task.h>
+
+#  include <ulp_lp_core.h>
+#  include <lp_core_i2c.h>
+#  include <esp_sleep.h>
+#  include "ulp_main.h"
+
+extern const uint8_t ulp_main_bin_start[] asm("_binary_ulp_main_bin_start");
+extern const uint8_t ulp_main_bin_end[] asm("_binary_ulp_main_bin_end");
+
+static void lp_core_init(void) {
+  esp_err_t ret = ESP_OK;
+
+  ulp_lp_core_cfg_t cfg = {.wakeup_source = ULP_LP_CORE_WAKEUP_SOURCE_LP_TIMER,
+                           .lp_timer_sleep_duration_us = 1000000};
+
+  ret = ulp_lp_core_load_binary(ulp_main_bin_start,
+                                (ulp_main_bin_end - ulp_main_bin_start));
+  if (ret != ESP_OK) {
+    std::cout << ae::Format("LP Core load failed!");
+    abort();
+  }
+
+  ret = ulp_lp_core_run(&cfg);
+  if (ret != ESP_OK) {
+    std::cout << ae::Format("LP Core run failed!");
+    abort();
+  }
+
+  std::cout << ae::Format("LP core loaded with firmware successfully!");
+}
+
+#  ifndef LP_I2C_SDA_IO
+#    define LP_I2C_SDA_IO GPIO_NUM_6
+#  endif
+
+#  ifndef LP_I2C_SCL_IO
+#    define LP_I2C_SCL_IO GPIO_NUM_7
+#  endif
+
+static void lp_i2c_init(void) {
+  esp_err_t ret = ESP_OK;
+
+  /* Initialize LP I2C with default configuration */
+  lp_core_i2c_cfg_t i2c_cfg{};
+  lp_core_i2c_timing_cfg_t i2c_timing_cfg{};
+
+  i2c_timing_cfg.clk_speed_hz = 100000;
+
+  i2c_cfg.i2c_pin_cfg.sda_io_num = LP_I2C_SDA_IO;
+  i2c_cfg.i2c_pin_cfg.scl_io_num = LP_I2C_SCL_IO;
+  i2c_cfg.i2c_pin_cfg.sda_pullup_en = true;
+  i2c_cfg.i2c_pin_cfg.scl_pullup_en = true;
+  i2c_cfg.i2c_timing_cfg = i2c_timing_cfg;
+  i2c_cfg.i2c_src_clk = LP_I2C_SCLK_LP_FAST;
+
+  ret = lp_core_i2c_master_init(LP_I2C_NUM_0, &i2c_cfg);
+  if (ret != ESP_OK) {
+    std::cout << ae::Format("LP I2C init failed!");
+    abort();
+  }
+
+  std::cout << ae::Format("LP I2C initialized successfully!");
+}
+
+static void lp_goto_sleep(void) {
+  /* Initialize LP_I2C from the main processor */
+  lp_i2c_init();
+  /* Load LP Core binary and start the coprocessor */
+  lp_core_init();
+
+  vTaskDelay(pdMS_TO_TICKS(1));
+
+  ulp_wakeup_temp_threshold = 50000;  // Threshold: 20.00°C
+  ulp_can_start = 1;
+
+  esp_sleep_enable_ulp_wakeup();
+  esp_deep_sleep_start();
+}
+
+int DeepSleep(time_point sleep_until) {
+  // TODO: specify time until sleep
+  lp_goto_sleep();
+
+  return 0;
+}
+#endif
