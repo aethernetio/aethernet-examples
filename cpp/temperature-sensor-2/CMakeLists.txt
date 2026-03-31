@@ -38,7 +38,7 @@ if (CM_PLATFORM STREQUAL "ESP32")
   add_compile_definitions(CM_ESP32)
 
   list(APPEND EXTRA_COMPONENT_DIRS
-    "./main"
+    # "./main"
     "./aether-client-cpp/aether")
 
   project(temperature_sensor2 LANGUAGES CXX C ASM)

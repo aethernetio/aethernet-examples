@@ -63,26 +63,7 @@ else()
         esp_hw_support
         driver)
 
-    #
-    # ULP support additions to component CMakeLists.txt.
-    #
-    # 1. The LP Core app name must be unique (if multiple components use LP Core).
-    set(ulp_app_name ulp_${COMPONENT_NAME})
-    #
-    # 2. Specify all C files.
-    #    Files should be placed into a separate directory (in this case, ulp/),
-    #    which should not be added to COMPONENT_SRCS.
-    set(ulp_lp_core_sources ${ulp_src_list})
-
-    #
-    # 3. List all the component source files which include automatically
-    #    generated LP Core export file, ${ulp_app_name}.h:
-    set(ulp_exp_dep_srcs "main.cpp")
-
-    #
-    # 4. Call function to build ULP binary and embed in project using the argument
-    #    values above.
-    ulp_embed_binary(${ulp_app_name} "${ulp_lp_core_sources}" "${ulp_exp_dep_srcs}")
+    ulp_add_project("ulp_main" "${CMAKE_CURRENT_LIST_DIR}/../ulp")
 
     set(TARGET_NAME "${COMPONENT_LIB}")
     if (NOT "${WIFI_SSID}" STREQUAL "")
