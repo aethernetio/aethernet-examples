@@ -18,29 +18,30 @@
 
 #include "user_config.h"
 
-#ifdef TEMP_SENSOR_RANDON
+#ifdef TEMP_SENSOR_RANDOM
 #  ifndef IS_ULP_COCPU
 #    include <stdlib.h>
 #    include <stdio.h>
 #    include <time.h>
 #  endif
 
-void ReadSensors(uint32_t* temperature, uint32_t* humidity, uint32_t* pressure,
+void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,
                  uint32_t* co2, uint32_t* gas_resistance) {
 #  ifndef IS_ULP_COCPU
   // get random value as temperature
   srand(time(NULL));
 
-  static uint32_t last_value = 50000;  // value *1000
+  static uint32_t last_value = 12000;  // 20°C
   // get diff in range -2 to 2
-  int32_t diff = (rand() % 4000) - 2000;
+  int32_t diff = (rand() % 400) - 200;
   uint32_t value = last_value += diff;
-  printf("\n >>>  RND Temperature measured: %d°C/1000 - 30 \n\n", value);
+  printf("\n >>>  RND Temperature measured: %0.2f°C\n\n",
+         (float)value / 100.0F - 100.0F);
 #  else
-  static uint32_t last_value = 51100;  // 21.1 °C
-  uint32_t value = last_value += 1100;
-  if (last_value > 79000) {
-    last_value = 100;  // -29.9 °C
+  static uint32_t last_value = 12110;  // 21.1 °C
+  uint32_t value = last_value += 110;
+  if (last_value > 19000) {
+    last_value = 9900;  // -1 °C
   }
 #  endif
 

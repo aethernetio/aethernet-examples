@@ -107,7 +107,7 @@ bool Init() {
   return true;
 }
 
-void ReadSensors(uint32_t* temperature, uint32_t* humidity, uint32_t* pressure,
+void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,
                  uint32_t* co2, uint32_t* gas_resistance) {
   // Static Initialization Block (Runs once)
   if (!initialized) {
@@ -134,7 +134,7 @@ void ReadSensors(uint32_t* temperature, uint32_t* humidity, uint32_t* pressure,
           n_fields > 0) {
 #  ifndef BME68X_USE_FPU
         if (temperature) {
-          *temperature = (uint32_t)(data.temperature + 300) * 10;
+          *temperature = (uint32_t)(data.temperature + 10000);
         }
         if (humidity) {
           *humidity = (uint32_t)data.humidity;
@@ -147,8 +147,7 @@ void ReadSensors(uint32_t* temperature, uint32_t* humidity, uint32_t* pressure,
         }
 #  else
         if (temperature) {
-          *temperature = (uint32_t)(data.temperature * 1000);
-          ESP_LOGI(TAG, "BME Temperature measured: %d°Cx1000", *temperature);
+          *temperature = (uint32_t)(data.temperature * 100) + 10000;
         }
         if (humidity) {
           *humidity = (uint32_t)(data.humidity * 1000);
@@ -161,10 +160,9 @@ void ReadSensors(uint32_t* temperature, uint32_t* humidity, uint32_t* pressure,
         }
 #  endif
         if (temperature) {
-          ESP_LOGI(TAG, "BME Temperature measured: %d°Cx1000", *temperature);
+          ESP_LOGI(TAG, "BME Temperature measured: %d°Cx100 + 10000",
+                   *temperature);
         }
-      } else {
-        return;
       }
     }
   }

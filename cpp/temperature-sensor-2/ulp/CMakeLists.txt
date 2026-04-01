@@ -19,14 +19,17 @@ set(ULP_APP_NAME ulp_main)
 project(${ULP_APP_NAME})
 
 list(APPEND main_src
-  main.c
+  "main.c"
 )
 
 list(APPEND sensors_src
-  ${CMAKE_CURRENT_LIST_DIR}/../main/BME68x_SensorAPI/bme68x.c
-  ${CMAKE_CURRENT_LIST_DIR}/../main/sensors/ulp_utils.c
-  ${CMAKE_CURRENT_LIST_DIR}/../main/sensors/random_val.c
-  ${CMAKE_CURRENT_LIST_DIR}/../main/sensors/bme688.c
+  "${CMAKE_CURRENT_LIST_DIR}/../main/BME68x_SensorAPI/bme68x.c"
+  "${CMAKE_CURRENT_LIST_DIR}/../main/sensors/ulp_utils.c"
+  "${CMAKE_CURRENT_LIST_DIR}/../main/sensors/random_val.c"
+  "${CMAKE_CURRENT_LIST_DIR}/../main/sensors/bme688.c"
+  "${CMAKE_CURRENT_LIST_DIR}/../main/sensors/shtc3.c"
+  "${CMAKE_CURRENT_LIST_DIR}/../main/sensors/stcc4.c"
+  "${CMAKE_CURRENT_LIST_DIR}/../main/sensors/sht45.c"
 )
 
 add_executable(${ULP_APP_NAME} ${main_src} ${sensors_src})

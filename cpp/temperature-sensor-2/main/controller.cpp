@@ -60,7 +60,7 @@ void UpdateSensors();
 // Message from aether service received
 void MessageReceived(ae::DataBuffer const& buffer);
 // Send the message value to the aether service
-void SendValue(std::uint32_t temperature);
+void SendValue(std::uint16_t temperature);
 // Go to sleep method
 void GoToSleep(ae::Uap::Timer uap_timer);
 
@@ -149,7 +149,7 @@ void loop() {
 
 // implemented in sensors/
 void UpdateSensors() {
-  std::uint32_t temperature = {};
+  std::uint16_t temperature = {};
   ReadSensors(&temperature, nullptr, nullptr, nullptr, nullptr);
   SendValue(temperature);
 }
@@ -159,20 +159,21 @@ void MessageReceived(ae::DataBuffer const& buffer) {
   std::cout << ae::Format(" >>> Received message from service: [{}]\n", buffer);
 }
 
-void SendValue(std::uint32_t temperature) {
+void SendValue(std::uint16_t temperature) {
   // The stream is not initialized yet
   if (!message_stream) {
     return;
   }
 
-  // the value in range -30 to 50 is mapped to 0 to 80000 (1000 units per
+  // the value in range -100 to 100 is mapped to 0 to 20000 (100 units per
   // degree)
-  // 80000 * 3 = 240000
+  // remap it on -30 to 50 - 0 to 8000
   // encode temperature value in range 0 to 255
   // to decode use (v/3-30)
   auto encoded_value = static_cast<std::uint8_t>(
-      std::clamp(temperature, std::uint32_t{0}, std::uint32_t{80000}) * 3U /
-      1000U);
+      (std::clamp(temperature, std::uint16_t{7000}, std::uint16_t{15000}) -
+       7000) *
+      3U / 100U);
 
   auto message = ae::DataBuffer{};
   message.reserve(2);

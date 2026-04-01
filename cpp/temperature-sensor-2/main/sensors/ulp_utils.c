@@ -39,6 +39,6 @@ esp_err_t i2c_write_read(uint8_t port, uint8_t address,
       port, address, write_data, write_len, read_data, read_len, ms_dur);
 }
 
-void wait_for(int32_t ms_dur) { ulp_lp_core_delay_us(ms_dur); }
+void wait_for(int32_t us_dur) { ulp_lp_core_delay_us(us_dur); }
 
 #endif

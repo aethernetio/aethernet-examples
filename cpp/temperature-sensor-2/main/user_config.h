@@ -64,8 +64,11 @@
 #  endif
 #endif
 // fallback to random sensor if no board has a sensor
-#if (BOARD_HAS_ULP != 1 || IS_ULP_COCPU) && (BOARD_HAS_BME688 != 1)
-#  define TEMP_SENSOR_RANDON 1
+#if (BOARD_HAS_BME688 != 1) && (BOARD_HAS_SHT45 != 1) && \
+    (BOARD_HAS_SHTC3 != 1) && (BOARD_HAS_STCC4 != 1)
+#  if (BOARD_HAS_ULP != 1) || defined IS_ULP_COCPU
+#    define TEMP_SENSOR_RANDOM 1
+#  endif
 #endif
 
 #if BOARD_HAS_ULP == 1

@@ -32,7 +32,7 @@ esp_err_t i2c_read(uint8_t port, uint8_t address, uint8_t* data, uint8_t len,
 esp_err_t i2c_write_read(uint8_t port, uint8_t address,
                          uint8_t const* write_data, uint8_t write_len,
                          uint8_t* read_data, uint8_t read_len, int32_t ms_dur);
-void wait_for(int32_t ms_dur);
+void wait_for(int32_t us_dur);
 
 #  ifdef __cplusplus
 }

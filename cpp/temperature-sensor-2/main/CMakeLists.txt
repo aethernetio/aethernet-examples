@@ -33,6 +33,9 @@ list(APPEND sensors_src
   "sensors/ulp_utils.c"
   "sensors/esp_main_utils.c"
   "sensors/bme688.c"
+  "sensors/shtc3.c"
+  "sensors/stcc4.c"
+  "sensors/sht45.c"
   "sensors/random_val.c"
   "sensors/ulp_saved_val.c"
 )

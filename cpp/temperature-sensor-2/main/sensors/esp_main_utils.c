@@ -54,5 +54,8 @@ esp_err_t i2c_write_read(uint8_t port, uint8_t address,
                                       pdMS_TO_TICKS(ms_dur));
 }
 
-void wait_for(int32_t ms_dur) { vTaskDelay(pdMS_TO_TICKS(ms_dur)); }
+void wait_for(int32_t us_dur) {
+  // wait min 1ms if it's possible
+  vTaskDelay(pdMS_TO_TICKS(us_dur > 1000 ? us_dur / 1000 : 1));
+}
 #endif
