@@ -25,3 +25,7 @@
 	path = cpp/echo_cpp/aether-client-cpp
 	url = https://github.com/aethernetio/aether-client-cpp.git
 	branch = main
+[submodule "cpp/echo_capi/aether-client-cpp"]
+	path = cpp/echo_capi/aether-client-cpp
+	url = https://github.com/aethernetio/aether-client-cpp.git
+	branch = main
