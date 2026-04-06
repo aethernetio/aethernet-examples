@@ -23,9 +23,6 @@
 #include "hal/i2c_types.h"
 #include "soc/gpio_num.h"
 
-#ifndef BOARD_HAS_SLEEP_MANAGER
-#  define BOARD_HAS_SLEEP_MANAGER 1
-#endif
 #ifndef BOARD_HAS_ULP
 #  define BOARD_HAS_ULP 1
 #endif

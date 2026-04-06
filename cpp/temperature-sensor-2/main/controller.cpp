@@ -21,29 +21,6 @@
 #include "sensors/sensors.h"
 #include "sleeping/sleeping.h"
 
-#ifdef ESP_PLATFORM
-#  include <freertos/FreeRTOS.h>
-#  include <freertos/task.h>
-#if BOARD_HAS_ULP == 1
-#  include <ulp_lp_core.h>
-#  include <lp_core_i2c.h>
-#  include <esp_sleep.h>
-#endif
-#endif
-
-#if BOARD_HAS_ULP == 1
-extern const uint8_t ulp_main_bin_start[] asm("_binary_ulp_main_bin_start");
-extern const uint8_t ulp_main_bin_end[] asm("_binary_ulp_main_bin_end");
-
-static void lp_core_init(void);
-static void lp_i2c_init(void);
-static void lp_goto_sleep(void);
-#endif
-
-#if BOARD_HAS_ULP == 1
-static esp_sleep_wakeup_cause_t cause{ESP_SLEEP_WAKEUP_UNDEFINED};
-#endif
-
 // timeouts
 // kMaxWaitTime is used to limit the wait time to prevent blocking other tasks
 static constexpr auto kMaxWaitTime = std::chrono::seconds{1};
@@ -86,11 +63,6 @@ static ae::RcPtr<ae::AetherApp> aether_app;
 static ae::RcPtr<ae::P2pStream> message_stream;
 
 void setup() {
-#if BOARD_HAS_ULP == 1
-  cause = esp_sleep_get_wakeup_cause();
-  std::cout << ae::Format(R"(Cause {})", cause) << std::endl;
-#endif
-
   aether_app = ae::AetherApp::Construct(
       ae::AetherAppContext{}
 #if AE_DISTILLATION
@@ -174,6 +146,7 @@ void loop() {
 void UpdateSensors() {
   std::uint16_t temperature = {};
   ReadSensors(&temperature, nullptr, nullptr, nullptr, nullptr);
+  // TODO: add check if wakeup cause is ulp then send value
   SendValue(temperature);
 }
 
@@ -221,7 +194,6 @@ void GoToSleep(ae::Uap::Timer uap_timer) {
     return;
   }
 
-#if BOARD_HAS_SLEEP_MANAGER == 1 && BOARD_HAS_ULP == 0
   // get the interval with the specified offset
   // offset is required to account the Save operation
   auto interval = uap_timer.interval(std::chrono::seconds{10});
@@ -231,84 +203,7 @@ void GoToSleep(ae::Uap::Timer uap_timer) {
   auto sleep_until = interval.until();
   std::cout << ae::Format(" >>> Sleep until {:%Y-%m-%d %H:%M:%S}...\n",
                           sleep_until);
-  DeepSleep(interval.until());
-#elif BOARD_HAS_ULP == 1
-  std::cout << ae::Format("ULP Core sleep.\n");
-  // save current aether state
-  aether_app->aether().Save();
-  // Go to sleep
-  lp_goto_sleep();
-#endif
+  // TODO: add separate sleep duration
+  DeepSleep(interval.until(), interval.until(),
+            12000);  // wait till time or 20 deegrees
 }
-
-#if BOARD_HAS_ULP == 1
-static void lp_core_init(void) {
-  esp_err_t ret = ESP_OK;
-
-  ulp_lp_core_cfg_t cfg = {.wakeup_source = ULP_LP_CORE_WAKEUP_SOURCE_LP_TIMER,
-                           .lp_timer_sleep_duration_us = 1000000};
-
-  ret = ulp_lp_core_load_binary(ulp_main_bin_start,
-                                (ulp_main_bin_end - ulp_main_bin_start));
-  if (ret != ESP_OK) {
-    std::cout << ae::Format("LP Core load failed!\n");
-    abort();
-  }
-
-  ret = ulp_lp_core_run(&cfg);
-  if (ret != ESP_OK) {
-    std::cout << ae::Format("LP Core run failed!\n");
-    abort();
-  }
-
-  std::cout << ae::Format("LP core loaded with firmware successfully!\n");
-}
-
-#ifndef LP_I2C_SDA_IO
-    #define LP_I2C_SDA_IO  GPIO_NUM_6
-#endif
-
-#ifndef LP_I2C_SCL_IO
-    #define LP_I2C_SCL_IO  GPIO_NUM_7
-#endif
-
-static void lp_i2c_init(void) {
-  esp_err_t ret = ESP_OK;
-
-  /* Initialize LP I2C with default configuration */
-  lp_core_i2c_cfg_t i2c_cfg{};
-  lp_core_i2c_timing_cfg_t i2c_timing_cfg{};
-
-  i2c_timing_cfg.clk_speed_hz = 100000;
-
-  i2c_cfg.i2c_pin_cfg.sda_io_num = LP_I2C_SDA_IO;
-  i2c_cfg.i2c_pin_cfg.scl_io_num = LP_I2C_SCL_IO;
-  i2c_cfg.i2c_pin_cfg.sda_pullup_en = true;
-  i2c_cfg.i2c_pin_cfg.scl_pullup_en = true;
-  i2c_cfg.i2c_timing_cfg = i2c_timing_cfg;
-  i2c_cfg.i2c_src_clk = LP_I2C_SCLK_LP_FAST;
-
-  ret = lp_core_i2c_master_init(LP_I2C_NUM_0, &i2c_cfg);
-  if (ret != ESP_OK) {
-    std::cout << ae::Format("LP I2C init failed!\n");
-    abort();
-  }
-
-  std::cout << ae::Format("LP I2C initialized successfully!\n");
-}
-
-static void lp_goto_sleep(void) {
-  /* Initialize LP_I2C from the main processor */
-  lp_i2c_init();
-  /* Load LP Core binary and start the coprocessor */
-  lp_core_init();
-  
-  vTaskDelay(pdMS_TO_TICKS(1));
-  
-  //ulp_wakeup_temp_threshold = 2000;  // Threshold: 20.00°C
-  //ulp_can_start = 1;
-  
-  esp_sleep_enable_ulp_wakeup();
-  esp_deep_sleep_start();
-  }
-#endif
