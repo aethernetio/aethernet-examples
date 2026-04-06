@@ -34,7 +34,7 @@ esp_err_t i2c_init(i2c_port_t port, int sda_pin, int scl_pin) {
   if (i2c_param_config(port, &conf) != ESP_OK) {
     return ESP_ERR_INVALID_STATE;
   }
-  return i2c_driver_install(port, conf.mode, 0, 0, 0);  
+  return i2c_driver_install(port, conf.mode, 0, 0, 0);
 }
 
 esp_err_t i2c_write(i2c_port_t port, uint8_t address, uint8_t const* data,
@@ -57,7 +57,12 @@ esp_err_t i2c_write_read(i2c_port_t port, uint8_t address,
 }
 
 void wait_for(int32_t us_dur) {
-  // wait min 1ms if it's possible
-  vTaskDelay(pdMS_TO_TICKS(us_dur > 1000 ? us_dur : 1000));
+  // wait min 1 tick
+  static TickType_t one_tick_ms = pdTICKS_TO_MS(1);
+  uint32_t ms_dur = us_dur / 1000U;
+  if (ms_dur < one_tick_ms) {
+    ms_dur = (uint32_t)one_tick_ms;
+  }
+  vTaskDelay(pdMS_TO_TICKS(ms_dur));
 }
 #endif
