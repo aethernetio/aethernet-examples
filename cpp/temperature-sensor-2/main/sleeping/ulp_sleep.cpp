@@ -24,10 +24,15 @@
 #  include <freertos/FreeRTOS.h>
 #  include <freertos/task.h>
 
+#  include <esp_log.h>
+#  include <esp_sleep.h>
+#  include <esp_timer.h>
+
 #  include <ulp_lp_core.h>
 #  include <lp_core_i2c.h>
-#  include <esp_sleep.h>
 #  include "ulp_main.h"
+
+static const char* TAG = "ULP_SLEEP";
 
 extern const uint8_t ulp_main_bin_start[] asm("_binary_ulp_main_bin_start");
 extern const uint8_t ulp_main_bin_end[] asm("_binary_ulp_main_bin_end");
@@ -87,7 +92,8 @@ static void lp_i2c_init(void) {
   std::cout << ae::Format("LP I2C initialized successfully!");
 }
 
-static void lp_goto_sleep(void) {
+int DeepSleep(time_point, time_point hard_sleep_tp,
+              std::uint32_t temperature_threshold) {
   /* Initialize LP_I2C from the main processor */
   lp_i2c_init();
   /* Load LP Core binary and start the coprocessor */
@@ -95,16 +101,28 @@ static void lp_goto_sleep(void) {
 
   vTaskDelay(pdMS_TO_TICKS(1));
 
-  ulp_wakeup_temp_threshold = 50000;  // Threshold: 20.00°C
+  ulp_wakeup_temp_threshold = temperature_threshold;
   ulp_can_start = 1;
 
+  // sleep either until hard sleep or ulp wakeup
+  auto time_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                     hard_sleep_tp - std::chrono::system_clock::now())
+                     .count();
+  esp_sleep_enable_timer_wakeup(time_us);
   esp_sleep_enable_ulp_wakeup();
-  esp_deep_sleep_start();
-}
 
-int DeepSleep(time_point sleep_until) {
-  // TODO: specify time until sleep
-  lp_goto_sleep();
+  ESP_LOGI(TAG, "Timer wakeup enabled: %llu us", time_us);
+
+  ESP_LOGI(TAG, "Entering deep sleep...");
+  // preserve RTC memory
+#  if SOC_PM_SUPPORT_RTC_SLOW_MEM_PD
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_ON);
+#  endif
+#  if SOC_PM_SUPPORT_RTC_FAST_MEM_PD
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_ON);
+#  endif
+
+  esp_deep_sleep_start();
 
   return 0;
 }

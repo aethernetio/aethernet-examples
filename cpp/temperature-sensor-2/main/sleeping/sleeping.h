@@ -18,8 +18,10 @@
 #define SLEEPING_SLEEPING_H_
 
 #include <chrono>
+#include <cstdint>
 
 using time_point = std::chrono::time_point<std::chrono::system_clock>;
 
-int DeepSleep(time_point sleep_until);
+int DeepSleep(time_point soft_sleep_tp, time_point hard_sleep_tp,
+              std::uint32_t temperature_threshold);
 #endif  // SLEEPING_SLEEPING_H_

@@ -23,8 +23,8 @@
 
 extern void setup();
 
-int DeepSleep(time_point sleep_until) {
-  std::this_thread::sleep_until(sleep_until);
+int DeepSleep(time_point soft_sleep_tp, time_point, std::uint32_t) {
+  std::this_thread::sleep_until(soft_sleep_tp);
   // TODO: how to restart the app, use execv ?
   return 0;
 }
