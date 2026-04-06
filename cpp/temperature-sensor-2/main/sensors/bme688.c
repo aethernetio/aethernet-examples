@@ -23,8 +23,6 @@
 #  include <stdlib.h>
 #  include <string.h>
 
-#  include <esp_log.h>
-
 #  include <freertos/FreeRTOS.h>
 #  include <freertos/task.h>
 
@@ -32,7 +30,11 @@
 
 #  include "sensors/utils.h"
 
-#  define TAG "BME_SENSOR"
+#ifdef IS_ULP_COCPU
+#  define BME_I2C_NUM LP_I2C_NUM_0
+#else
+#  define BME_I2C_NUM I2C_NUM_0
+#endif
 
 // --- SAFER Interface Functions ---
 static BME68X_INTF_RET_TYPE bme_i2c_read(uint8_t reg_addr, uint8_t* reg_data,
@@ -50,7 +52,6 @@ static BME68X_INTF_RET_TYPE bme_i2c_write(uint8_t reg_addr,
 
   // SAFETY CHECK: Prevent buffer overflow if driver requests too much data
   if (len > (MAX_I2C_BUFFER - 1)) {
-    ESP_LOGE(TAG, "Write length too big: %lu", len);
     return BME68X_E_COM_FAIL;
   }
 
@@ -77,7 +78,7 @@ uint8_t dev_addr = BME68X_I2C_ADDR_HIGH;
 
 bool Init() {
   // 1. INSTALL I2C DRIVER
-  if (!i2c_init(BME_I2C_NUM, BME_SDA_PIN, BME_SCL_PIN)) {
+  if (!i2c_init(BME_I2C_NUM, SENSOR_SDA_PIN, SENSOR_SCL_PIN)) {
     return false;
   }
 
@@ -159,10 +160,6 @@ void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,
           *gas_resistance = (uint32_t)(data.gas_resistance * 1000);
         }
 #  endif
-        if (temperature) {
-          ESP_LOGI(TAG, "BME Temperature measured: %d°Cx100 + 10000",
-                   *temperature);
-        }
       }
     }
   }

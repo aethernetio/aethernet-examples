@@ -43,7 +43,11 @@
 static uint8_t data_wr[2];
 static uint8_t data_rd[6];
 
+#ifdef IS_ULP_COCPU
 #  define STCC4_I2C_NUM_0 LP_I2C_NUM_0
+#else
+#  define STCC4_I2C_NUM_0 I2C_NUM_0
+#endif
 
 // Helper function to send a 16-bit command
 static void send_command_16bit(uint16_t cmd, uint8_t slave_addr) {
@@ -61,6 +65,14 @@ static void send_command_16bit(uint16_t cmd, uint8_t slave_addr) {
 static void send_command_8bit(uint8_t cmd, uint8_t slave_addr) {
   data_wr[0] = cmd;
   i2c_write(STCC4_I2C_NUM_0, slave_addr, data_wr, 1, LP_I2C_TRANS_WAIT_FOREVER);
+}
+
+bool Init() {
+  // 1. INSTALL I2C DRIVER
+  if (i2c_init(STCC4_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN) != ESP_OK) {
+    return false;
+  }
+return true;
 }
 
 void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,

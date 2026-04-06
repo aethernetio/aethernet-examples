@@ -19,34 +19,36 @@
 #  include <freertos/task.h>
 
 #  include "driver/i2c.h"
+#  include "esp_log.h"
 
-esp_err_t i2c_init(uint8_t port, int sda_pin, int scl_pin) {
+esp_err_t i2c_init(i2c_port_t port, int sda_pin, int scl_pin) {
   i2c_config_t conf = {
       .mode = I2C_MODE_MASTER,
       .sda_io_num = sda_pin,
       .scl_io_num = scl_pin,
       .sda_pullup_en = GPIO_PULLUP_ENABLE,
       .scl_pullup_en = GPIO_PULLUP_ENABLE,
-      .master.clk_speed = 100000,
+      .master = {.clk_speed = 100000},
+      .clk_flags = 0,
   };
   if (i2c_param_config(port, &conf) != ESP_OK) {
     return ESP_ERR_INVALID_STATE;
   }
-  return i2c_driver_install(port, conf.mode, 0, 0, 0);
+  return i2c_driver_install(port, conf.mode, 0, 0, 0);  
 }
 
-esp_err_t i2c_write(uint8_t port, uint8_t address, uint8_t const* data,
+esp_err_t i2c_write(i2c_port_t port, uint8_t address, uint8_t const* data,
                     uint8_t len, int32_t ms_dur) {
   return i2c_master_write_to_device(port, address, data, len,
                                     pdMS_TO_TICKS(ms_dur));
 }
 
-esp_err_t i2c_read(uint8_t port, uint8_t address, uint8_t* data, uint8_t len,
+esp_err_t i2c_read(i2c_port_t port, uint8_t address, uint8_t* data, uint8_t len,
                    int32_t ms_dur) {
   return i2c_master_read_from_device(port, address, data, len, ms_dur);
 }
 
-esp_err_t i2c_write_read(uint8_t port, uint8_t address,
+esp_err_t i2c_write_read(i2c_port_t port, uint8_t address,
                          uint8_t const* write_data, uint8_t write_len,
                          uint8_t* read_data, uint8_t read_len, int32_t ms_dur) {
   return i2c_master_write_read_device(port, address, write_data, write_len,
@@ -56,6 +58,6 @@ esp_err_t i2c_write_read(uint8_t port, uint8_t address,
 
 void wait_for(int32_t us_dur) {
   // wait min 1ms if it's possible
-  vTaskDelay(pdMS_TO_TICKS(us_dur > 1000 ? us_dur / 1000 : 1));
+  vTaskDelay(pdMS_TO_TICKS(us_dur > 1000 ? us_dur : 1000));
 }
 #endif

@@ -43,19 +43,13 @@
 static uint8_t data_wr[2];
 static uint8_t data_rd[6];
 
+#ifdef IS_ULP_COCPU
 #  define SHT45_I2C_NUM_0 LP_I2C_NUM_0
+#else
+#  define SHT45_I2C_NUM_0 I2C_NUM_0
+#endif
 
-// Helper function to send a 16-bit command
-static void send_command_16bit(uint16_t cmd, uint8_t slave_addr) {
-  data_wr[0] = (cmd >> 8) & 0xFF;  // High byte
-  data_wr[1] = cmd & 0xFF;         // Low byte
-  esp_err_t ret = i2c_write(SHT45_I2C_NUM_0, slave_addr, data_wr,
-                            sizeof(data_wr), LP_I2C_TRANS_WAIT_FOREVER);
-  if (ret != ESP_OK) {
-    // Bail and try again
-    return;
-  }
-}
+bool initialized = false;
 
 // Helper function to send an 8-bit command
 static void send_command_8bit(uint8_t cmd, uint8_t slave_addr) {
@@ -63,17 +57,29 @@ static void send_command_8bit(uint8_t cmd, uint8_t slave_addr) {
   i2c_write(SHT45_I2C_NUM_0, slave_addr, data_wr, 1, LP_I2C_TRANS_WAIT_FOREVER);
 }
 
+bool Init() {
+  // 1. INSTALL I2C DRIVER
+  if (i2c_init(SHT45_I2C_NUM_0, SENSOR_SDA_PIN, SENSOR_SCL_PIN) != ESP_OK) {
+    return false;
+  }
+return true;
+}
+
 void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,
                  uint32_t* co2, uint32_t* gas_resistance) {
   esp_err_t ret;
-
+  
   // SHT45 does not require a separate wakeup command
-
+  // Static Initialization Block (Runs once)
+  if (!initialized) {
+    initialized = Init();
+  }
+  
   // Send measurement command
   send_command_8bit(SHT4X_CMD_MEASURE_HIGH_PRECISION, SHT45_SLAVE_ADDR);
 
   // Measurement time for high precision
-  wait_for(10000);  // 10 ms
+  wait_for(1100);  // 1.1 ms
 
   // Read 6 bytes: temperature and humidity with CRC
   ret = i2c_read(SHT45_I2C_NUM_0, SHT45_SLAVE_ADDR, data_rd, 6,

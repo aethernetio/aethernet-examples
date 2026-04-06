@@ -43,9 +43,8 @@
 #define BOARD_HAS_STCC4 0
 #define BOARD_HAS_BME688 1
 // --- Hardware Settings ---
-#define BME_I2C_NUM I2C_NUM_0
-#define BME_SDA_PIN 2
-#define BME_SCL_PIN 1
+#define SENSOR_SDA_PIN 2
+#define SENSOR_SCL_PIN 1
 // FIX 1: Use a Fixed Buffer instead of VLA (Variable Length Array) to prevent
 // stack smash
 #define MAX_I2C_BUFFER 64

@@ -21,6 +21,7 @@
 #endif
 
 #include "hal/i2c_types.h"
+#include "soc/gpio_num.h"
 
 #ifndef BOARD_HAS_SLEEP_MANAGER
 #  define BOARD_HAS_SLEEP_MANAGER 1
@@ -39,13 +40,12 @@
 #endif
 // --- Sensors ---
 #define BOARD_HAS_SHTC3 0
-#define BOARD_HAS_SHT45 0
+#define BOARD_HAS_SHT45 1
 #define BOARD_HAS_STCC4 0
-#define BOARD_HAS_BME688 1
+#define BOARD_HAS_BME688 0
 // --- Hardware Settings ---
-#define BME_I2C_NUM I2C_NUM_0
-#define BME_SDA_PIN 19
-#define BME_SCL_PIN 18
+#define SENSOR_SDA_PIN GPIO_NUM_6
+#define SENSOR_SCL_PIN GPIO_NUM_7
 // FIX 1: Use a Fixed Buffer instead of VLA (Variable Length Array) to prevent
 // stack smash
 #define MAX_I2C_BUFFER 64
