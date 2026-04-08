@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#ifdef ESP_PLATFORM
+#if defined ESP_PLATFORM
 
 #  include <stdlib.h>
 #  include <esp_err.h>

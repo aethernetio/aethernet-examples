@@ -14,20 +14,22 @@
  * limitations under the License.
  */
 
-#include "sensors/sensors.h"
-
 #include "user_config.h"
 
 #if BOARD_HAS_BME688 == 1
+#if ((ULP_COMP == 1) && (BOARD_HAS_ULP == 1)) || ((ULP_COMP == 0) && (BOARD_HAS_ULP == 0))
+#pragma message("BME688 is enabled")
 
 #  include <stdlib.h>
 #  include <string.h>
+#  include <stdbool.h>
 
 #  include <freertos/FreeRTOS.h>
 #  include <freertos/task.h>
 
 #  include "BME68x_SensorAPI/bme68x.h"
 
+#  include "sensors/sensors.h"
 #  include "sensors/utils.h"
 
 #ifdef IS_ULP_COCPU
@@ -108,7 +110,7 @@ bool Init() {
   return true;
 }
 
-void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,
+void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
                  uint32_t* co2, uint32_t* gas_resistance) {
   // Static Initialization Block (Runs once)
   if (!initialized) {
@@ -135,7 +137,7 @@ void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,
           n_fields > 0) {
 #  ifndef BME68X_USE_FPU
         if (temperature) {
-          *temperature = (uint32_t)(data.temperature + 10000);
+          *temperature = (int16_t)(data.temperature + 10000);
         }
         if (humidity) {
           *humidity = (uint32_t)data.humidity;
@@ -166,4 +168,5 @@ void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,
 
   return;
 }
+#endif
 #endif

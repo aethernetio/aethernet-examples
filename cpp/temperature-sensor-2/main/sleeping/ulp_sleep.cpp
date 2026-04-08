@@ -16,6 +16,7 @@
  */
 
 #include "sleeping/sleeping.h"
+#include "user_config.h"
 
 #include "aether/all.h"
 
@@ -32,7 +33,6 @@
 #  include <lp_core_i2c.h>
 #  include "ulp_main.h"
 
-static const char* TAG = "ULP_SLEEP";
 
 extern const uint8_t ulp_main_bin_start[] asm("_binary_ulp_main_bin_start");
 extern const uint8_t ulp_main_bin_end[] asm("_binary_ulp_main_bin_end");
@@ -46,25 +46,25 @@ static void lp_core_init(void) {
   ret = ulp_lp_core_load_binary(ulp_main_bin_start,
                                 (ulp_main_bin_end - ulp_main_bin_start));
   if (ret != ESP_OK) {
-    std::cout << ae::Format("LP Core load failed!");
+    std::cout << ae::Format("LP Core load failed!\n");
     abort();
   }
 
   ret = ulp_lp_core_run(&cfg);
   if (ret != ESP_OK) {
-    std::cout << ae::Format("LP Core run failed!");
+    std::cout << ae::Format("LP Core run failed!\n");
     abort();
   }
 
-  std::cout << ae::Format("LP core loaded with firmware successfully!");
+  std::cout << ae::Format("LP core loaded with firmware successfully!\n");
 }
 
 #  ifndef LP_I2C_SDA_IO
-#    define LP_I2C_SDA_IO GPIO_NUM_6
+#    define LP_I2C_SDA_IO SENSOR_SDA_PIN
 #  endif
 
 #  ifndef LP_I2C_SCL_IO
-#    define LP_I2C_SCL_IO GPIO_NUM_7
+#    define LP_I2C_SCL_IO SENSOR_SCL_PIN
 #  endif
 
 static void lp_i2c_init(void) {
@@ -85,11 +85,11 @@ static void lp_i2c_init(void) {
 
   ret = lp_core_i2c_master_init(LP_I2C_NUM_0, &i2c_cfg);
   if (ret != ESP_OK) {
-    std::cout << ae::Format("LP I2C init failed!");
+    std::cout << ae::Format("LP I2C init failed!\n");
     abort();
   }
 
-  std::cout << ae::Format("LP I2C initialized successfully!");
+  std::cout << ae::Format("LP I2C initialized successfully!\n");
 }
 
 int DeepSleep(time_point, time_point hard_sleep_tp,
@@ -111,9 +111,9 @@ int DeepSleep(time_point, time_point hard_sleep_tp,
   esp_sleep_enable_timer_wakeup(time_us);
   esp_sleep_enable_ulp_wakeup();
 
-  ESP_LOGI(TAG, "Timer wakeup enabled: %llu us", time_us);
+  std::cout << ae::Format("Timer wakeup enabled: {} us\n", time_us);
 
-  ESP_LOGI(TAG, "Entering deep sleep...");
+  std::cout << ae::Format("Entering deep sleep...\n");
   // preserve RTC memory
 #  if SOC_PM_SUPPORT_RTC_SLOW_MEM_PD
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_ON);

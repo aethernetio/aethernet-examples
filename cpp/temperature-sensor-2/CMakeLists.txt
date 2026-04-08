@@ -27,6 +27,8 @@ endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(AE_FILTRATION On CACHE BOOL "" FORCE)
+
 # add user provided config wich will be included as regular .h file
 # Add a user-provided config file, which will be included as a regular .h file
 set(USER_CONFIG "user_config.h" CACHE PATH "" FORCE)

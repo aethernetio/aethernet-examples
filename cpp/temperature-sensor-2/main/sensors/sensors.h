@@ -34,7 +34,7 @@ extern "C" {
  * \param co2 Pointer to store the CO2 value (optional).
  * \param gas_resistance Pointer to store the gas resistance value (optional).
  */
-void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,
+void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
                  uint32_t* co2, uint32_t* gas_resistance);
 
 #ifdef __cplusplus

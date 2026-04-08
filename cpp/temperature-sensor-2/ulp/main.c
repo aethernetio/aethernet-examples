@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#if BOARD_HAS_ULP == 1
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -32,7 +34,7 @@ volatile uint32_t wakeup_co2_threshold;   // Threshold: XXX ppm
 volatile uint16_t wakeup_gas_threshold;   // Threshold: Gas
 // Variables to store latest values
 
-uint16_t temperature;
+int16_t temperature;
 uint32_t humidity;
 uint32_t pressure;
 uint32_t co2;
@@ -68,3 +70,9 @@ int main(void) {
 
   return 0;
 }
+
+#else
+int main(void) {
+  return 0;
+}
+#endif

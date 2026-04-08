@@ -19,7 +19,7 @@
 #include "user_config.h"
 
 #ifdef TEMP_SENSOR_RANDOM
-#  ifndef IS_ULP_COCPU
+#  if ULP_COMP == 0
 #    include <stdlib.h>
 #    include <stdio.h>
 #    include <time.h>

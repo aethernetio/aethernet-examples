@@ -144,8 +144,9 @@ void loop() {
 
 // implemented in sensors/
 void UpdateSensors() {
-  std::uint16_t temperature = {};
+  std::int16_t temperature = {};
   ReadSensors(&temperature, nullptr, nullptr, nullptr, nullptr);
+  std::cout << ae::Format(" >>> Temperature: [{}]\n", temperature);
   // TODO: add check if wakeup cause is ulp then send value
   SendValue(temperature);
 }
@@ -205,5 +206,5 @@ void GoToSleep(ae::Uap::Timer uap_timer) {
                           sleep_until);
   // TODO: add separate sleep duration
   DeepSleep(interval.until(), interval.until(),
-            12000);  // wait till time or 20 deegrees
+            3000);  // wait till time or 30 deegrees
 }

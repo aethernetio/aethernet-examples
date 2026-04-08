@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-#ifdef IS_ULP_COCPU
+#include "user_config.h"
+
+#if ULP_COMP == 1
 
 #  include "utils.h"
 

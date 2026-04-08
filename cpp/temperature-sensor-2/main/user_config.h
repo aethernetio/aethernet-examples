@@ -45,7 +45,7 @@
 
 #define AE_TELE_DEBUG_MODULES AE_ALL
 
-#if ESP_PLATFORM
+#if defined ESP_PLATFORM
 // Select the board to build example for
 #  define BOARD_AETHER_ESP32_C6 0
 #  define BOARD_FIRE_BEETLE2_С6 1
@@ -77,6 +77,12 @@
 #  define ESP_MAIN_SLEEP 1
 #else
 #  define THREAD_SLEEP 1
+#endif
+
+#if defined IS_ULP_COCPU
+#  define ULP_COMP 1
+#else
+#  define ULP_COMP 0
 #endif
 
 #endif  // USER_CONFIG_H_

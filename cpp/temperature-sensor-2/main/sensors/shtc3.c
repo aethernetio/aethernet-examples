@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
-#include "sensors/sensors.h"
-
 #include "user_config.h"
 
 #if BOARD_HAS_SHTC3 == 1
+#if ((ULP_COMP == 1) && (BOARD_HAS_ULP == 1)) || ((ULP_COMP == 0) && (BOARD_HAS_ULP == 0))
+#pragma message("SHTC3 is enabled")
 
-#  include "stdint.h"
+#  include <stdint.h>
+#  include <stdbool.h>
 
+#  include "sensors/sensors.h"
 #  include "sensors/utils.h"
 
 // Constants for SHTC3
@@ -44,6 +46,8 @@ static uint8_t data_rd[6];
 #else
 #  define SHTC3_I2C_NUM_0 I2C_NUM_0
 #endif
+
+bool initialized = false;
 
 // Helper function to send a 16-bit command
 static void send_command_16bit(uint16_t cmd, uint8_t slave_addr) {
@@ -71,11 +75,15 @@ bool Init() {
 return true;
 }
 
-void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,
+void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
                  uint32_t* co2, uint32_t* gas_resistance) {
   esp_err_t ret;
   // Wake up the sensor
   // SHTC3 sleeps after power-up. Wakeup command requires ~240 µs.
+  if (!initialized) {
+    initialized = Init();
+  }
+  
   send_command_16bit(SHTC3_CMD_WAKEUP, SHTC3_SLAVE_ADDR);
   wait_for(300);  // Small margin
 
@@ -99,11 +107,11 @@ void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,
     // Convert to physical quantities according to datasheet
     // Temperature: T (°C) = -45 + 175 * raw_temp / 2^16
     // Store as integer * 100 (to avoid float in ULP)
-    uint32_t temp_x100 = (17500ULL * raw_temp) / 65536 - 4500;  // *100
+    int32_t temp_x100 = (17500ULL * raw_temp) / 65536 - 4500;  // *100
     uint32_t hum_x100 = (10000ULL * raw_hum) / 65536;           // *100
 
     if (temperature) {
-      *temperature = temp_x100;
+      *temperature = (int16_t)temp_x100;
     }
     if (humidity) {
       *humidity = hum_x100;
@@ -114,4 +122,5 @@ void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,
   send_command_16bit(SHTC3_CMD_SLEEP, SHTC3_SLAVE_ADDR);
 }
 
+#endif
 #endif

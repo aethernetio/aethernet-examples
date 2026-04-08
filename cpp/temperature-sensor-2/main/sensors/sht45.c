@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2026 Aethernet Inc.
  *
@@ -15,14 +14,16 @@
  * limitations under the License.
  */
 
-#include "sensors/sensors.h"
-
 #include "user_config.h"
 
 #if BOARD_HAS_SHT45 == 1
+#if ((ULP_COMP == 1) && (BOARD_HAS_ULP == 1)) || ((ULP_COMP == 0) && (BOARD_HAS_ULP == 0))
+#pragma message("SHT45 is enabled")
 
-#  include "stdint.h"
+#  include <stdint.h>
+#  include <stdbool.h>
 
+#  include "sensors/sensors.h"
 #  include "sensors/utils.h"
 
 // Constants for SHT45
@@ -43,7 +44,7 @@
 static uint8_t data_wr[2];
 static uint8_t data_rd[6];
 
-#ifdef IS_ULP_COCPU
+#if ULP_COMP == 1
 #  define SHT45_I2C_NUM_0 LP_I2C_NUM_0
 #else
 #  define SHT45_I2C_NUM_0 I2C_NUM_0
@@ -65,7 +66,7 @@ bool Init() {
 return true;
 }
 
-void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,
+void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
                  uint32_t* co2, uint32_t* gas_resistance) {
   esp_err_t ret;
   
@@ -79,7 +80,7 @@ void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,
   send_command_8bit(SHT4X_CMD_MEASURE_HIGH_PRECISION, SHT45_SLAVE_ADDR);
 
   // Measurement time for high precision
-  wait_for(1100);  // 1.1 ms
+  wait_for(1100000);  // 1.1 S
 
   // Read 6 bytes: temperature and humidity with CRC
   ret = i2c_read(SHT45_I2C_NUM_0, SHT45_SLAVE_ADDR, data_rd, 6,
@@ -92,11 +93,11 @@ void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,
     // Formulas for SHT45
     // Temperature: T = -45 + 175 * raw_temp / 65535
     // Humidity: RH = 100 * raw_hum / 65535
-    uint32_t temp_x100 = (17500ULL * raw_temp) / 65535 - 4500;
+    int32_t temp_x100 = (17500ULL * raw_temp) / 65535 - 4500;
     uint32_t hum_x100 = (10000ULL * raw_hum) / 65535;
 
     if (temperature) {
-      *temperature = temp_x100;
+      *temperature = (int16_t)temp_x100;
     }
     if (humidity) {
       *humidity = hum_x100;
@@ -104,4 +105,5 @@ void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,
   }
 }
 
+#endif
 #endif

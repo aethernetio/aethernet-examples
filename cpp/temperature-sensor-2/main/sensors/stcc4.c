@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2026 Aethernet Inc.
  *
@@ -15,14 +14,16 @@
  * limitations under the License.
  */
 
-#include "sensors/sensors.h"
-
 #include "user_config.h"
 
 #if BOARD_HAS_STTC4 == 1
+#if ((ULP_COMP == 1) && (BOARD_HAS_ULP == 1)) || ((ULP_COMP == 0) && (BOARD_HAS_ULP == 0))
+#pragma message("STTC4 is enabled")
 
-#  include "stdint.h"
+#  include <stdint.h>
+#  include <stdbool.h>
 
+#  include "sensors/sensors.h"
 #  include "sensors/utils.h"
 
 // Constants for STCC4
@@ -48,6 +49,8 @@ static uint8_t data_rd[6];
 #else
 #  define STCC4_I2C_NUM_0 I2C_NUM_0
 #endif
+
+bool initialized = false;
 
 // Helper function to send a 16-bit command
 static void send_command_16bit(uint16_t cmd, uint8_t slave_addr) {
@@ -75,9 +78,13 @@ bool Init() {
 return true;
 }
 
-void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,
+void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
                  uint32_t* co2, uint32_t* gas_resistance) {
   esp_err_t ret;
+
+  if (!initialized) {
+    initialized = Init();
+  }
 
   send_command_16bit(STCC4_CMD_MEASURE_SINGLE_SHOT, STCC4_SLAVE_ADDR);
 
@@ -99,4 +106,5 @@ void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,
   }
 }
 
+#endif
 #endif

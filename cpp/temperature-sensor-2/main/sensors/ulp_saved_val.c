@@ -18,18 +18,17 @@
 
 #include "user_config.h"
 
-#if (BOARD_HAS_ULP == 1) && !defined IS_ULP_COCPU
+#if ((BOARD_HAS_ULP == 1) && (ULP_COMP == 0))
 #  include <stdio.h>
 
 #  include "ulp_main.h"
 
-void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,
+void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
                  uint32_t* co2, uint32_t* gas_resistance) {
-  printf("\n >>> ULP Temperature measured: %.2f°C\n\n",
-         (float)ulp_temperature / 1000.0F - 30.0F);
+  printf(" >>> ULP Temperature: [%d]\n", (int16_t)ulp_temperature);
 
   if (temperature) {
-    *temperature = ulp_temperature;
+    *temperature = (int16_t)ulp_temperature;
   }
   if (humidity) {
     *humidity = ulp_humidity;
