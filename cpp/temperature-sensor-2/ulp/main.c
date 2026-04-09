@@ -14,24 +14,25 @@
  * limitations under the License.
  */
 
+#include "user_config.h"
+
 #if BOARD_HAS_ULP == 1
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <string.h>
+#  include <stdint.h>
+#  include <stdbool.h>
 
-#include "ulp_lp_core.h"
-#include "ulp_lp_core_i2c.h"
-#include "ulp_lp_core_utils.h"
+#  include "ulp_lp_core.h"
+#  include "ulp_lp_core_i2c.h"
+#  include "ulp_lp_core_utils.h"
 
-#include "sensors/sensors.h"
+#  include "sensors/sensors.h"
 
-#define nullptr ((void*)0)
+#  define nullptr ((void*)0)
 
 // Variables in RTC memory (accessible from main.c)
-volatile uint16_t wakeup_temp_threshold;  // Threshold: XX.XX°C
-volatile uint32_t wakeup_co2_threshold;   // Threshold: XXX ppm
-volatile uint16_t wakeup_gas_threshold;   // Threshold: Gas
+volatile int16_t wakeup_temp_threshold;  // Threshold: XX.XX°C
+volatile uint32_t wakeup_co2_threshold;  // Threshold: XXX ppm
+volatile uint16_t wakeup_gas_threshold;  // Threshold: Gas
 // Variables to store latest values
 
 int16_t temperature;
@@ -72,7 +73,5 @@ int main(void) {
 }
 
 #else
-int main(void) {
-  return 0;
-}
+int main(void) { return 0; }
 #endif

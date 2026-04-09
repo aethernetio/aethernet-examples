@@ -55,7 +55,7 @@ void UpdateSensors();
 // Message from aether service received
 void MessageReceived(ae::DataBuffer const& buffer);
 // Send the message value to the aether service
-void SendValue(std::uint16_t temperature);
+void SendValue(std::int16_t temperature);
 // Go to sleep method
 void GoToSleep(ae::Uap::Timer uap_timer);
 
@@ -156,29 +156,20 @@ void MessageReceived(ae::DataBuffer const& buffer) {
   std::cout << ae::Format(" >>> Received message from service: [{}]\n", buffer);
 }
 
-void SendValue(std::uint16_t temperature) {
+void SendValue(std::int16_t temperature) {
   // The stream is not initialized yet
   if (!message_stream) {
     return;
   }
-
-  // the value in range -100 to 100 is mapped to 0 to 20000 (100 units per
-  // degree)
-  // remap it on -30 to 50 - 0 to 8000
-  // encode temperature value in range 0 to 255
-  // to decode use (v/3-30)
-  auto encoded_value = static_cast<std::uint8_t>(
-      (std::clamp(temperature, std::uint16_t{7000}, std::uint16_t{15000}) -
-       7000) *
-      3U / 100U);
 
   auto message = ae::DataBuffer{};
   message.reserve(2);
   {
     auto writer = ae::VectorWriter<>{message};
     auto stream = ae::omstream{writer};
-    // write message code and encoded value
-    stream << std::uint8_t{0x03} << encoded_value;
+    // write message code and
+    // temperature in range -100.0 to 100.0 x100 (-10000 to 10000)
+    stream << std::uint8_t{0x03} << temperature;
   }
 
   auto write_action = message_stream->Write(std::move(message));

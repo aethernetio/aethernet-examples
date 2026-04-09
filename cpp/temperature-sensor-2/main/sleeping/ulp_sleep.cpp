@@ -33,7 +33,6 @@
 #  include <lp_core_i2c.h>
 #  include "ulp_main.h"
 
-
 extern const uint8_t ulp_main_bin_start[] asm("_binary_ulp_main_bin_start");
 extern const uint8_t ulp_main_bin_end[] asm("_binary_ulp_main_bin_end");
 
@@ -93,7 +92,7 @@ static void lp_i2c_init(void) {
 }
 
 int DeepSleep(time_point, time_point hard_sleep_tp,
-              std::uint32_t temperature_threshold) {
+              std::int16_t temperature_threshold) {
   /* Initialize LP_I2C from the main processor */
   lp_i2c_init();
   /* Load LP Core binary and start the coprocessor */
@@ -101,7 +100,7 @@ int DeepSleep(time_point, time_point hard_sleep_tp,
 
   vTaskDelay(pdMS_TO_TICKS(1));
 
-  ulp_wakeup_temp_threshold = temperature_threshold;
+  ulp_wakeup_temp_threshold = static_cast<uint32_t>(temperature_threshold);
   ulp_can_start = 1;
 
   // sleep either until hard sleep or ulp wakeup

@@ -25,23 +25,23 @@
 #    include <time.h>
 #  endif
 
-void ReadSensors(uint16_t* temperature, uint32_t* humidity, uint32_t* pressure,
+void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
                  uint32_t* co2, uint32_t* gas_resistance) {
-#  ifndef IS_ULP_COCPU
+#  ifndef ULP_COMP
   // get random value as temperature
   srand(time(NULL));
 
-  static uint32_t last_value = 12000;  // 20°C
+  static int16_t last_value = 2000;  // 20°C
   // get diff in range -2 to 2
-  int32_t diff = (rand() % 400) - 200;
-  uint32_t value = last_value += diff;
+  int16_t diff = (int16_t)(rand() % 400) - 200;
+  int16_t value = last_value += diff;
   printf("\n >>>  RND Temperature measured: %0.2f°C\n\n",
-         (float)value / 100.0F - 100.0F);
+         (float)value / 100.0F);
 #  else
-  static uint32_t last_value = 12110;  // 21.1 °C
-  uint32_t value = last_value += 110;
-  if (last_value > 19000) {
-    last_value = 9900;  // -1 °C
+  static int16_t last_value = 2110;  // 21.1 °C
+  int16_t value = last_value += 190;
+  if (last_value > 4900) {
+    last_value = -100;  // -1 °C
   }
 #  endif
 

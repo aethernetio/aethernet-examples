@@ -47,7 +47,7 @@
 
 static const char* TAG = "ESP_MAIN_SLEEP";
 
-int DeepSleep(time_point soft_sleep_tp, time_point, std::uint32_t) {
+int DeepSleep(time_point soft_sleep_tp, time_point, std::int16_t) {
   auto time_us = std::chrono::duration_cast<std::chrono::microseconds>(
                      soft_sleep_tp - std::chrono::system_clock::now())
                      .count();

@@ -17,26 +17,27 @@
 #include "user_config.h"
 
 #if BOARD_HAS_BME688 == 1
-#if ((ULP_COMP == 1) && (BOARD_HAS_ULP == 1)) || ((ULP_COMP == 0) && (BOARD_HAS_ULP == 0))
-#pragma message("BME688 is enabled")
+#  if ((ULP_COMP == 1) && (BOARD_HAS_ULP == 1)) || \
+      ((ULP_COMP == 0) && (BOARD_HAS_ULP == 0))
+#    pragma message("BME688 is enabled")
 
-#  include <stdlib.h>
-#  include <string.h>
-#  include <stdbool.h>
+#    include <stdlib.h>
+#    include <string.h>
+#    include <stdbool.h>
 
-#  include <freertos/FreeRTOS.h>
-#  include <freertos/task.h>
+#    include <freertos/FreeRTOS.h>
+#    include <freertos/task.h>
 
-#  include "BME68x_SensorAPI/bme68x.h"
+#    include "BME68x_SensorAPI/bme68x.h"
 
-#  include "sensors/sensors.h"
-#  include "sensors/utils.h"
+#    include "sensors/sensors.h"
+#    include "sensors/utils.h"
 
-#ifdef IS_ULP_COCPU
-#  define BME_I2C_NUM LP_I2C_NUM_0
-#else
-#  define BME_I2C_NUM I2C_NUM_0
-#endif
+#    ifdef IS_ULP_COCPU
+#      define BME_I2C_NUM LP_I2C_NUM_0
+#    else
+#      define BME_I2C_NUM I2C_NUM_0
+#    endif
 
 // --- SAFER Interface Functions ---
 static BME68X_INTF_RET_TYPE bme_i2c_read(uint8_t reg_addr, uint8_t* reg_data,
@@ -135,9 +136,9 @@ void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
       if (bme68x_get_data(BME68X_FORCED_MODE, &data, &n_fields, &bme) ==
               BME68X_OK &&
           n_fields > 0) {
-#  ifndef BME68X_USE_FPU
+#    ifndef BME68X_USE_FPU
         if (temperature) {
-          *temperature = (int16_t)(data.temperature + 10000);
+          *temperature = (int16_t)(data.temperature);
         }
         if (humidity) {
           *humidity = (uint32_t)data.humidity;
@@ -148,9 +149,9 @@ void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
         if (gas_resistance) {
           *gas_resistance = (uint32_t)data.gas_resistance;
         }
-#  else
+#    else
         if (temperature) {
-          *temperature = (uint32_t)(data.temperature * 100) + 10000;
+          *temperature = (int16_t)(data.temperature * 100.F);
         }
         if (humidity) {
           *humidity = (uint32_t)(data.humidity * 1000);
@@ -161,12 +162,12 @@ void ReadSensors(int16_t* temperature, uint32_t* humidity, uint32_t* pressure,
         if (gas_resistance) {
           *gas_resistance = (uint32_t)(data.gas_resistance * 1000);
         }
-#  endif
+#    endif
       }
     }
   }
 
   return;
 }
-#endif
+#  endif
 #endif

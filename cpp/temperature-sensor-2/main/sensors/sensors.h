@@ -28,7 +28,7 @@ extern "C" {
  * The values are optional, you may specify only those you are interested in.
  * Also not any sensor support all values.
  * \param temperature Pointer to store the temperature value (optional).
- * temperature in range -100.0 to 100.0 mapped to 0 to 20000
+ * temperature in range -100.0 to 100.0 x100 (-10000 to 10000)
  * \param humidity Pointer to store the humidity value (optional).
  * \param pressure Pointer to store the pressure value (optional).
  * \param co2 Pointer to store the CO2 value (optional).
