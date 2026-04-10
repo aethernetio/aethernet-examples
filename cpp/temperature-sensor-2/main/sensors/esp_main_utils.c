@@ -40,7 +40,7 @@ esp_err_t i2c_init(i2c_port_t port, int sda_pin, int scl_pin) {
 esp_err_t i2c_write(i2c_port_t port, uint8_t address, uint8_t const* data,
                     uint8_t len, int32_t ms_dur) {
   return i2c_master_write_to_device(port, address, data, len,
-                                    pdMS_TO_TICKS(ms_dur));
+                                    ms_dur);
 }
 
 esp_err_t i2c_read(i2c_port_t port, uint8_t address, uint8_t* data, uint8_t len,
@@ -53,7 +53,7 @@ esp_err_t i2c_write_read(i2c_port_t port, uint8_t address,
                          uint8_t* read_data, uint8_t read_len, int32_t ms_dur) {
   return i2c_master_write_read_device(port, address, write_data, write_len,
                                       read_data, read_len,
-                                      pdMS_TO_TICKS(ms_dur));
+                                      ms_dur);
 }
 
 void wait_for(int32_t us_dur) {

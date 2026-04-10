@@ -35,6 +35,7 @@ list(APPEND sensors_src
 add_executable(${ULP_APP_NAME} ${main_src} ${sensors_src})
 
 add_compile_definitions(ESP_PLATFORM)
+add_compile_definitions(BME68X_DO_NOT_USE_FPU)
 
 # Import the ULP project helper functions
 include(IDFULPProject)

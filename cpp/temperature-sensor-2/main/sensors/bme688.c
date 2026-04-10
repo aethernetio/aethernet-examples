@@ -39,12 +39,16 @@
 #      define BME_I2C_NUM I2C_NUM_0
 #    endif
 
+// Constants
+#define I2C_TRANS_TIMEOUT_CYCLES 5000
+#define I2C_TRANS_WAIT_FOREVER   -1
+
 // --- SAFER Interface Functions ---
 static BME68X_INTF_RET_TYPE bme_i2c_read(uint8_t reg_addr, uint8_t* reg_data,
                                          uint32_t len, void* intf_ptr) {
   uint8_t dev_addr = *(uint8_t*)intf_ptr;
   esp_err_t err =
-      i2c_write_read(BME_I2C_NUM, dev_addr, &reg_addr, 1, reg_data, len, 100);
+      i2c_write_read(BME_I2C_NUM, dev_addr, &reg_addr, 1, reg_data, len, I2C_TRANS_TIMEOUT_CYCLES);
   return (err == ESP_OK) ? BME68X_OK : BME68X_E_COM_FAIL;
 }
 
@@ -64,24 +68,23 @@ static BME68X_INTF_RET_TYPE bme_i2c_write(uint8_t reg_addr,
   memcpy(&buffer[1], reg_data, len);
 
   esp_err_t err =
-      i2c_write(BME_I2C_NUM, dev_addr, buffer, len + 1, pdMS_TO_TICKS(100));
+      i2c_write(BME_I2C_NUM, dev_addr, buffer, len + 1, I2C_TRANS_WAIT_FOREVER);
   return (err == ESP_OK) ? BME68X_OK : BME68X_E_COM_FAIL;
 }
 
 static void bme_delay_us(uint32_t period, void* intf_ptr) {
-  uint32_t ms = (period / 1000) + 1;
   // FIX 2: Ensure we don't delay for 0 ticks, but also don't block interrupts
-  vTaskDelay(pdMS_TO_TICKS(ms));
+  wait_for(period);
 }
 
 bool initialized = false;
 struct bme68x_dev bme;
 struct bme68x_conf conf;
-uint8_t dev_addr = BME68X_I2C_ADDR_HIGH;
+uint8_t dev_addr = BME68X_I2C_ADDR_LOW;
 
 bool Init() {
   // 1. INSTALL I2C DRIVER
-  if (!i2c_init(BME_I2C_NUM, SENSOR_SDA_PIN, SENSOR_SCL_PIN)) {
+  if (i2c_init(BME_I2C_NUM, SENSOR_SDA_PIN, SENSOR_SCL_PIN) != ESP_OK) {
     return false;
   }
 
@@ -94,7 +97,7 @@ bool Init() {
   bme.amb_temp = 25;
 
   if (bme68x_init(&bme) != BME68X_OK) {
-    dev_addr = 0x76;  // Try alternate address
+    dev_addr = BME68X_I2C_ADDR_HIGH;  // Try alternate address
     if (bme68x_init(&bme) != BME68X_OK) {
       return false;
     }
