@@ -24,8 +24,10 @@ if (ESP_PLATFORM OR IDF_TARGET)
   set(CM_PLATFORM "ESP32")
 endif()
 
-#set(CMAKE_CXX_STANDARD 20)
-#set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(AE_FILTRATION On CACHE BOOL "" FORCE)
 
 # add user provided config wich will be included as regular .h file
 # Add a user-provided config file, which will be included as a regular .h file
@@ -38,7 +40,7 @@ if (CM_PLATFORM STREQUAL "ESP32")
   add_compile_definitions(CM_ESP32)
 
   list(APPEND EXTRA_COMPONENT_DIRS
-    "./main"
+    # "./main"
     "./aether-client-cpp/aether")
 
   project(temperature_sensor2 LANGUAGES CXX C ASM)

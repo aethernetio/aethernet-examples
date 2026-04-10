@@ -17,8 +17,9 @@
 #ifndef USER_CONFIG_H_
 #define USER_CONFIG_H_
 
-#include "sdkconfig.h"
-
+#if ESP_PLATFORM
+#  include "sdkconfig.h"
+#endif
 #include "aether/config_consts.h"
 
 #define AE_CRYPTO_ASYNC AE_HYDRO_CRYPTO_PK
@@ -44,111 +45,44 @@
 
 #define AE_TELE_DEBUG_MODULES AE_ALL
 
-#define BOARD_AETHER_ESP32_C6    0
-#define BOARD_FIRE_BEETLE2_С6    1
-#define BOARD_NANO_ESP32_C6      2
-#define BOARD_WROVER_ESP32       3
-#define BOARD_M5STACK_ATOM_LITE  4
+#if defined ESP_PLATFORM
+// Select the board to build example for
+#  define BOARD_AETHER_ESP32_C6 0
+#  define BOARD_FIRE_BEETLE2_С6 1
+#  define BOARD_NANO_ESP32_C6 2
+#  define BOARD_WROVER_ESP32 3
+#  define BOARD_M5STACK_ATOM_LITE 4
 
-#define BOARD BOARD_AETHER_ESP32_C6
+#  define BOARD BOARD_NANO_ESP32_C6
 
-#if BOARD == BOARD_AETHER_ESP32_C6
-#  if CONFIG_IDF_TARGET_ESP32C6 != 1
-#    error "Illegal CPU! It must be an ESP32C6."
+#  if BOARD == BOARD_AETHER_ESP32_C6
+#    include "boards/aether_esp32_c6.h"
+#  elif BOARD == BOARD_M5STACK_ATOM_LITE
+#    include "boards/m5stack_atom_lite.h"
+#  elif BOARD == BOARD_NANO_ESP32_C6
+#    include "boards/nano_esp32_c6.h"
 #  endif
-#  if not defined BOARD_HAS_SLEEP_MANAGER
-#    define BOARD_HAS_SLEEP_MANAGER 1
+#endif
+// fallback to random sensor if no board has a sensor
+#if (BOARD_HAS_BME688 != 1) && (BOARD_HAS_SHT45 != 1) && \
+    (BOARD_HAS_SHTC3 != 1) && (BOARD_HAS_STCC4 != 1)
+#  if (BOARD_HAS_ULP != 1) || defined IS_ULP_COCPU
+#    define TEMP_SENSOR_RANDOM 1
 #  endif
-#  if not defined BOARD_HAS_ULP
-#    define BOARD_HAS_ULP 0
-#  endif
-#  if not defined BOARD_HAS_LED
-#    define BOARD_HAS_LED 1
-#  endif
-#  if not defined STATUS_LED_PIN
-#    define STATUS_LED_PIN GPIO_NUM_7
-#  endif
-#  if not defined RESET_BUTTON_PIN
-#    define RESET_BUTTON_PIN GPIO_NUM_9
-#  endif
-// --- Sensors ---
-#  define BOARD_HAS_SHTC3  0
-#  define BOARD_HAS_SHT45  1
-#  define BOARD_HAS_STCC4  1
-#  define BOARD_HAS_BME688 0
-// --- Hardware Settings ---
-#  define BME_I2C_NUM I2C_NUM_0
-#  define BME_SDA_PIN 19
-#  define BME_SCL_PIN 18
-// FIX 1: Use a Fixed Buffer instead of VLA (Variable Length Array) to prevent
-// stack smash
-#    define MAX_I2C_BUFFER 64
 #endif
 
-#if BOARD == BOARD_M5STACK_ATOM_LITE
-#  if CONFIG_IDF_TARGET_ESP32C6 != 1
-#    error "Illegal CPU! It must be an ESP32C6."
-#  endif
-#  if not defined BOARD_HAS_SLEEP_MANAGER
-#    define BOARD_HAS_SLEEP_MANAGER 1
-#  endif
-#  if not defined BOARD_HAS_ULP
-#    define BOARD_HAS_ULP 0
-#  endif
-#  if not defined BOARD_HAS_LED
-#    define BOARD_HAS_LED 1
-#  endif
-#  if not defined STATUS_LED_PIN
-#    define STATUS_LED_PIN GPIO_NUM_35
-#  endif
-#  if not defined RESET_BUTTON_PIN
-#    define RESET_BUTTON_PIN GPIO_NUM_41
-#  endif
-// --- Sensors ---
-#  define BOARD_HAS_SHTC3  0
-#  define BOARD_HAS_SHT45  0
-#  define BOARD_HAS_STCC4  0
-#  define BOARD_HAS_BME688 1
-// --- Hardware Settings ---
-#  define BME_I2C_NUM I2C_NUM_0
-#  define BME_SDA_PIN 2
-#  define BME_SCL_PIN 1
-// FIX 1: Use a Fixed Buffer instead of VLA (Variable Length Array) to prevent
-// stack smash
-#  define MAX_I2C_BUFFER 64
+#if BOARD_HAS_ULP == 1
+#  define ULP_SLEEP 1
+#elif defined ESP_PLATFORM
+#  define ESP_MAIN_SLEEP 1
+#else
+#  define THREAD_SLEEP 1
 #endif
 
-#if BOARD == BOARD_NANO_ESP32_C6
-#  if CONFIG_IDF_TARGET_ESP32C6 != 1
-#    error "Illegal CPU! It must be an ESP32C6."
-#  endif
-#  if not defined BOARD_HAS_SLEEP_MANAGER
-#    define BOARD_HAS_SLEEP_MANAGER 1
-#  endif
-#  if not defined BOARD_HAS_ULP
-#    define BOARD_HAS_ULP 1
-#  endif
-#  if not defined BOARD_HAS_LED
-#    define BOARD_HAS_LED 1
-#  endif
-#  if not defined STATUS_LED_PIN
-#    define STATUS_LED_PIN GPIO_NUM_8
-#  endif
-#  if not defined RESET_BUTTON_PIN
-#    define RESET_BUTTON_PIN GPIO_NUM_9
-#  endif
-// --- Sensors ---
-#  define BOARD_HAS_SHTC3  0
-#  define BOARD_HAS_SHT45  0
-#  define BOARD_HAS_STCC4  0
-#  define BOARD_HAS_BME688 1
-// --- Hardware Settings ---
-#  define BME_I2C_NUM I2C_NUM_0
-#  define BME_SDA_PIN 19
-#  define BME_SCL_PIN 18
-// FIX 1: Use a Fixed Buffer instead of VLA (Variable Length Array) to prevent
-// stack smash
-#  define MAX_I2C_BUFFER 64
+#if defined IS_ULP_COCPU
+#  define ULP_COMP 1
+#else
+#  define ULP_COMP 0
 #endif
 
 #endif  // USER_CONFIG_H_
