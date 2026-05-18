@@ -50,29 +50,27 @@ int main() {
   TimeSynchronizer time_synchronizer;
 
   // register or load clients
-  auto alice_client = aether_app->aether()->SelectClient(kParentUid, "Alice");
-  auto bob_client = aether_app->aether()->SelectClient(kParentUid, "Bob");
-
-  auto wait_clients = ae::CumulativeEvent<ae::Client::ptr, 2>{
-      [&](auto event, auto status) {
-        status.OnResult([&](auto& action) { event = action.client(); })
-            .OnError([&]() { aether_app->Exit(1); });
-      },
-      alice_client->StatusEvent(), bob_client->StatusEvent()};
-
-  // Create a subscription to the Result event
-  wait_clients.Subscribe([&](auto const& event) {
-    if (aether_app->IsExited()) {
-      return;
+  auto& bob_select = aether_app->aether()->SelectClient(kParentUid, "Bob");
+  bob_select.result_event().Subscribe([&](auto const& bob_res) {
+    if (bob_res) {
+      bob =
+          ae::make_unique<Bob>(*aether_app, bob_res.value(), time_synchronizer);
+      auto& alice_select =
+          aether_app->aether()->SelectClient(kParentUid, "Alice");
+      alice_select.result_event().Subscribe(
+          [&, uid = bob_res.value()->uid()](auto const& alice_res) {
+            if (alice_res) {
+              alice = ae::make_unique<Alice>(*aether_app, alice_res.value(),
+                                             time_synchronizer, uid);
+              // Save the current aether state
+              aether_app->aether().Save();
+            } else {
+              aether_app->Exit(1);
+            }
+          });
+    } else {
+      aether_app->Exit(1);
     }
-    auto client_alice = event[0];
-    auto client_bob = event[1];
-    alice = ae::make_unique<Alice>(*aether_app, std::move(client_alice),
-                                   time_synchronizer, client_bob->uid());
-    bob = ae::make_unique<Bob>(*aether_app, std::move(client_bob),
-                               time_synchronizer);
-    // Save the current aether state
-    aether_app->domain().SaveRoot(aether_app->aether());
   });
 
   while (!aether_app->IsExited()) {
@@ -116,8 +114,7 @@ Alice::Alice(ae::AetherApp& aether_app, ae::Client::ptr client_alice,
       p2pstream_{
           client_alice_->message_stream_manager().CreateStream(bobs_uid)},
       interval_sender_{*aether_app_, [this]() { SendMessage(); },
-                       std::chrono::milliseconds{5000},
-                       ae::RepeatableTask::kRepeatCountInfinite},
+                       std::chrono::seconds{5}},
       receive_data_sub_{p2pstream_->out_data_event().Subscribe(
           ae::MethodPtr<&Alice::ResponseReceived>{this})} {}
 
@@ -128,15 +125,16 @@ void Alice::SendMessage() {
   time_synchronizer_->SetPingSentTime(current_time);
 
   std::cout << ae::Format("[{:%H:%M:%S}] Alice sends \"ping\"'\n", ae::Now());
-  auto send_action =
+  auto& send_action =
       p2pstream_->Write({std::begin(ping_message), std::end(ping_message)});
 
   // notify about error
-  send_subs_.Push(
-      send_action->StatusEvent().Subscribe(ae::OnError{[&](auto const&) {
-        std::cerr << "ping send error" << '\n';
-        aether_app_->Exit(1);
-      }}));
+  send_subs_ += send_action.status_event().Subscribe([&](auto const& res) {
+    if (res == ae::WriteAction::Status::kFail) {
+      std::cerr << "ping send error" << '\n';
+      aether_app_->Exit(1);
+    }
+  });
 }
 
 void Alice::ResponseReceived(ae::DataBuffer const& data_buffer) {
