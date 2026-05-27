@@ -125,16 +125,7 @@ void Alice::SendMessage() {
   time_synchronizer_->SetPingSentTime(current_time);
 
   std::cout << ae::Format("[{:%H:%M:%S}] Alice sends \"ping\"'\n", ae::Now());
-  auto& send_action =
-      p2pstream_->Write({std::begin(ping_message), std::end(ping_message)});
-
-  // notify about error
-  send_subs_ += send_action.status_event().Subscribe([&](auto const& res) {
-    if (res == ae::WriteAction::Status::kFail) {
-      std::cerr << "ping send error" << '\n';
-      aether_app_->Exit(1);
-    }
-  });
+  p2pstream_->Write({std::begin(ping_message), std::end(ping_message)});
 }
 
 void Alice::ResponseReceived(ae::DataBuffer const& data_buffer) {
