@@ -74,7 +74,7 @@ int EchoExample() {
 #  include <esp_log.h>
 #  include <esp_task_wdt.h>
 
-extern "C" void app_main() {
+void app_main() {
   esp_task_wdt_config_t config_wdt = {
       /*.timeout_ms = */ 60000,
       /*.idle_core_mask = */ 0,  // i.e. do not watch any idle task

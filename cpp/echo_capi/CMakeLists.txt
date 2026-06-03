@@ -42,14 +42,10 @@ if (CM_PLATFORM STREQUAL "ESP32")
   idf_build_set_property(CM_PLATFORM "ESP32")
   add_compile_definitions(CM_ESP32)
 
-  list(APPEND EXTRA_COMPONENT_DIRS
-    "./aether-client-cpp/aether")
-
   project(echo-capi LANGUAGES CXX C ASM)
 else()
   project(echo-capi LANGUAGES CXX C ASM)
 
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-  add_subdirectory("./aether-client-cpp/aether" "aether")
   add_subdirectory("./main" "main")
 endif()

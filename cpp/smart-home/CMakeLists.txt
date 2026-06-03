@@ -39,13 +39,11 @@ if (CM_PLATFORM STREQUAL "ESP32")
   add_compile_definitions(CM_ESP32)
 
   list(APPEND EXTRA_COMPONENT_DIRS
-    "./src"
-    "./aether-client-cpp/aether")
+    "./src")
 
   project(smart_home LANGUAGES CXX C ASM)
 else()
   project(smart-home LANGUAGES CXX C ASM)
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-  add_subdirectory("./aether-client-cpp/aether" "aether")
   add_subdirectory("./src" "smart-home")
 endif()

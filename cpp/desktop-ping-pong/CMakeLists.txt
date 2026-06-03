@@ -14,6 +14,7 @@
 
 cmake_minimum_required(VERSION 3.16)
 
+
 # use Release build by default
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "")
@@ -30,8 +31,8 @@ set(USER_CONFIG user_config.h CACHE PATH "" FORCE)
 # ${USER_CONFIG} must be an absolute path or a path to something listed in include directories
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
-# Add the Aether library dependency
-add_subdirectory(aether-client-cpp/aether aether)
+include(../cmake/CPM.cmake)
+CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#main")
 
 add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE ping-pong.cpp)
