@@ -44,17 +44,22 @@ int EchoExample() {
   auto aether_app = ae::AetherApp::Construct(
       ae::AetherAppContext{}.AddAdapterFactory(&MakeAdapter));
 
-  auto select_client =
+  auto& select_client =
       aether_app->aether()->SelectClient(kParentUid, "echo_client");
-  select_client->StatusEvent().Subscribe(ae::OnResult{[&](auto const& action) {
-    ae::Client::ptr c = action.client();
-    auto ms = c->message_stream_manager().CreateStream(kEchoServiceUid);
-    ms->out_data_event().Subscribe([&, ms](auto const& data) {
-      ReceiveMessage(data);
-      aether_app->Exit(0);
-    });
-    SendMessage(ms);
-  }});
+  select_client.result_event().Subscribe([&](auto const& result) {
+    if (result) {
+      ae::Client::ptr const& c = result.value();
+      auto ms = c->message_stream_manager().CreateStream(kEchoServiceUid);
+      ms->out_data_event().Subscribe([&, ms](auto const& data) {
+        ReceiveMessage(data);
+        aether_app->Exit(0);
+      });
+      SendMessage(ms);
+    }
+    else {
+      aether_app->Exit(1);
+    }
+  });
 
   // Wait/Update loop to run aether internal actions
   while (!aether_app->IsExited()) {

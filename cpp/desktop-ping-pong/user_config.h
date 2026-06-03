@@ -22,6 +22,8 @@
  * \brief For full config list and default values \see aether/config.h
  */
 
+#define AE_SUPPORT_UDP 1
+
 // use hydrogen encryption
 #define AE_CRYPTO_ASYNC AE_HYDRO_CRYPTO_PK
 #define AE_CRYPTO_SYNC AE_HYDRO_CRYPTO_SK

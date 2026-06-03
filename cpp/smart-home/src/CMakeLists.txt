@@ -28,15 +28,12 @@ list(APPEND src_list
 if(NOT CM_PLATFORM)
   project("smart-home-app" VERSION "1.0.0" LANGUAGES C CXX)
 
+  include(../../cmake/CPM.cmake)
+  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#main")
+
   add_executable(${PROJECT_NAME} ${src_list})
   target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
   target_link_libraries(${PROJECT_NAME} PRIVATE aether)
-
-  include(GNUInstallDirs)
-  install(TARGETS ${PROJECT_NAME}
-      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-
 else()
   if(CM_PLATFORM STREQUAL "ESP32")
     set(WIFI_SSID "" CACHE STRING "WiFi SSID")
@@ -45,9 +42,13 @@ else()
     #ESP32 CMake
     idf_component_register(SRCS ${src_list}
       INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
-      PRIV_REQUIRES aether esp_driver_tsens)
-
+      PRIV_REQUIRES esp_wifi esp_netif nvs_flash spiffs esp_driver_uart esp_driver_tsens)
     set(TARGET_NAME "${COMPONENT_LIB}")
+
+    include(../../cmake/CPM.cmake)
+    CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#main")
+    target_link_libraries(${TARGET_NAME} PRIVATE aether)
+
     if (NOT "${WIFI_SSID}" STREQUAL "")
       target_compile_definitions(${TARGET_NAME} PRIVATE "WIFI_SSID=\"${WIFI_SSID}\"")
     endif()
