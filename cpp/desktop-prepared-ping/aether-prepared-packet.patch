@@ -1,0 +1,564 @@
+diff --git a/aether/client_messages/p2p_message_stream.cpp b/aether/client_messages/p2p_message_stream.cpp
+index 74b2755c..966dca82 100644
+--- a/aether/client_messages/p2p_message_stream.cpp
++++ b/aether/client_messages/p2p_message_stream.cpp
+@@ -26,6 +26,7 @@
+ #include "aether/cloud_connections/cloud_visit.h"
+ #include "aether/cloud_connections/cloud_request.h"
+ #include "aether/cloud_connections/cloud_subscription.h"
++#include "aether/cloud_connections/cloud_server_connection.h"
+ 
+ #include "aether/client_messages/client_messages_tele.h"
+ 
+@@ -51,6 +52,29 @@ class MessageSendStream final : public IStream<AeMessage, AeMessage> {
+         }},
+         request_policy_);
+   }
++
++  std::optional<prepared_packet::PreparedSendMessageBlock>
++  ExportPreparedSendMessageBlock(Uid target_uid,
++                                 std::uint32_t reserve_nonce_count) {
++    for (auto* sc : cloud_connection_->servers()) {
++      if (sc == nullptr) {
++        continue;
++      }
++
++      auto* conn = sc->client_connection();
++      if (conn == nullptr) {
++        continue;
++      }
++
++      auto block = conn->ExportPreparedSendMessageBlock(target_uid,
++                                                        reserve_nonce_count);
++      if (block) {
++        return block;
++      }
++    }
++
++    return std::nullopt;
++  }
+   StreamInfo stream_info() const override { return stream_info_; }
+   OutDataEvent::Subscriber out_data_event() override { return out_data_event_; }
+   StreamUpdateEvent::Subscriber stream_update_event() override {
+@@ -235,6 +259,17 @@ void P2pStream::WriteOut(DataBuffer const& data) {
+ 
+ Uid const& P2pStream::destination() const { return destination_; }
+ 
++std::optional<prepared_packet::PreparedSendMessageBlock>
++P2pStream::ExportPreparedSendMessageBlock(std::uint32_t reserve_nonce_count) {
++  if (!message_send_stream_) {
++    return std::nullopt;
++  }
++
++  return message_send_stream_->ExportPreparedSendMessageBlock(
++      destination_, reserve_nonce_count);
++}
++
++
+ void P2pStream::ConnectReceive() {
+   auto client_ptr = client_.Lock();
+   assert(client_ptr);
+diff --git a/aether/client_messages/p2p_message_stream.h b/aether/client_messages/p2p_message_stream.h
+index 7d856bf1..a9ebc5c8 100644
+--- a/aether/client_messages/p2p_message_stream.h
++++ b/aether/client_messages/p2p_message_stream.h
+@@ -17,6 +17,9 @@
+ #ifndef AETHER_CLIENT_MESSAGES_P2P_MESSAGE_STREAM_H_
+ #define AETHER_CLIENT_MESSAGES_P2P_MESSAGE_STREAM_H_
+ 
++#include <optional>
++#include <cstdint>
++
+ #include "aether/common.h"
+ 
+ #include "aether/types/uid.h"
+@@ -28,6 +31,7 @@
+ #include "aether/cloud_connections/cloud_server_connections.h"
+ #include "aether/connection_manager/client_cloud_manager.h"
+ #include "aether/connection_manager/client_connection_manager.h"
++#include "aether/prepared_packet/packet_encoder.h"
+ 
+ namespace ae {
+ class Client;
+@@ -60,6 +64,9 @@ class P2pStream final : public ByteIStream {
+ 
+   Uid const& destination() const;
+ 
++  std::optional<prepared_packet::PreparedSendMessageBlock>
++  ExportPreparedSendMessageBlock(std::uint32_t reserve_nonce_count);
++
+  private:
+   void ConnectReceive();
+   void ConnectSend();
+diff --git a/aether/prepared_packet/packet_encoder.h b/aether/prepared_packet/packet_encoder.h
+new file mode 100644
+index 00000000..5d05686d
+--- /dev/null
++++ b/aether/prepared_packet/packet_encoder.h
+@@ -0,0 +1,187 @@
++/*
++ * Prepared packet encoder experiment.
++ *
++ * This code does not send anything.
++ * It only builds Aether packet bytes from prepared state + payload.
++ */
++#ifndef AETHER_PREPARED_PACKET_PACKET_ENCODER_H_
++#define AETHER_PREPARED_PACKET_PACKET_ENCODER_H_
++
++#include <array>
++#include <cstddef>
++#include <cstdint>
++#include <limits>
++#include <memory>
++#include <utility>
++
++#include "aether/types/uid.h"
++#include "aether/types/data_buffer.h"
++
++#include "aether/crypto/key.h"
++#include "aether/crypto/crypto_nonce.h"
++#include "aether/crypto/ikey_provider.h"
++#include "aether/crypto/sync_crypto_provider.h"
++
++#include "aether/api_protocol/api_context.h"
++#include "aether/api_protocol/sub_api.h"
++
++#include "aether/work_cloud_api/ae_message.h"
++#include "aether/work_cloud_api/work_server_api/login_api.h"
++#include "aether/work_cloud_api/work_server_api/authorized_api.h"
++
++namespace ae::prepared_packet {
++
++enum class PreparedIpVersion : std::uint8_t {
++  kIpV4 = 4,
++  kIpV6 = 6,
++};
++
++struct PreparedUdpEndpoint {
++  PreparedIpVersion version = PreparedIpVersion::kIpV4;
++  std::uint16_t port = 0;
++
++  // IPv4 uses first 4 bytes.
++  // IPv6 uses all 16 bytes.
++  std::array<std::uint8_t, 16> ip{};
++};
++
++enum class EncodePacketError {
++  kNone = 0,
++  kNonceExhausted,
++  kEncodeFailed,
++};
++
++inline char const* ToString(EncodePacketError error) {
++  switch (error) {
++    case EncodePacketError::kNone:
++      return "none";
++    case EncodePacketError::kNonceExhausted:
++      return "nonce_exhausted";
++    case EncodePacketError::kEncodeFailed:
++      return "encode_failed";
++  }
++  return "unknown";
++}
++
++struct EncodePacketResult {
++  EncodePacketError error = EncodePacketError::kNone;
++  std::size_t bytes_written = 0;
++
++  // Debug counter inside prepared block. This is not the cryptographic nonce value.
++  std::uint64_t nonce_index = 0;
++
++  explicit operator bool() const {
++    return error == EncodePacketError::kNone;
++  }
++};
++
++// One block for now.
++// On MCU this can live in RTC RAM.
++// Later it can be split into flash/static and rtc/mutable parts.
++struct PreparedSendMessageBlock {
++  // Used by external sender after EncodePacket().
++  // EncodePacket() itself does not use endpoint.
++  PreparedUdpEndpoint endpoint;
++
++  // Used for login_by_alias(...)
++  Uid sender_ephemeral_uid;
++
++  // Used for AuthorizedApi::send_message(AeMessage{target_uid, payload})
++  Uid target_uid;
++
++  // Already derived client -> server key.
++  Key client_to_server_key;
++
++  // Mutable nonce state.
++  CryptoNonce next_nonce;
++  std::uint32_t nonce_left = 0;
++
++  // Debug only.
++  std::uint64_t nonce_index = 0;
++};
++
++class PreparedSendMessageKeyProvider final : public ISyncKeyProvider {
++ public:
++  explicit PreparedSendMessageKeyProvider(PreparedSendMessageBlock& block)
++      : block_{&block} {}
++
++  Key GetKey() const override {
++    return block_->client_to_server_key;
++  }
++
++  CryptoNonce const& Nonce() const override {
++    return block_->next_nonce;
++  }
++
++ private:
++  PreparedSendMessageBlock* block_;
++};
++
++inline EncodePacketResult EncodePacket(PreparedSendMessageBlock& block,
++                                       DataBuffer const& payload,
++                                       DataBuffer& out) {
++  if (block.nonce_left == 0) {
++    out.clear();
++    return EncodePacketResult{EncodePacketError::kNonceExhausted, 0,
++                              block.nonce_index};
++  }
++
++  // Match existing ClientKeyProvider semantics:
++  // consume next nonce before encryption.
++  block.next_nonce.Next();
++  --block.nonce_left;
++
++  auto nonce_index = block.nonce_index;
++  ++block.nonce_index;
++
++  auto key_provider =
++      std::make_unique<PreparedSendMessageKeyProvider>(block);
++  SyncEncryptProvider encrypt_provider{std::move(key_provider)};
++
++  ProtocolContext protocol_context;
++  LoginApi login_api{protocol_context, encrypt_provider};
++
++  auto api_context = ApiContext{login_api};
++
++  api_context->login_by_alias(
++      block.sender_ephemeral_uid,
++      SubApi<AuthorizedApi>{
++          [&block, &payload](ApiContext<AuthorizedApi>& auth_api) {
++            auth_api->send_message(
++                AeMessage{block.target_uid, DataBuffer{payload}});
++          }});
++
++  out = std::move(api_context).Pack();
++
++  return EncodePacketResult{EncodePacketError::kNone, out.size(), nonce_index};
++}
++
++// Existing internal seam. Keep normal Aether path working.
++struct PreparedPacketContext {
++  std::uint64_t next_nonce = 0;
++  std::uint64_t nonce_limit = (std::numeric_limits<std::uint64_t>::max)();
++
++  EncodePacketResult TakeNonce(std::size_t bytes_written) {
++    if (next_nonce == nonce_limit) {
++      return EncodePacketResult{EncodePacketError::kNonceExhausted, 0,
++                                next_nonce};
++    }
++
++    auto nonce = next_nonce;
++    ++next_nonce;
++
++    return EncodePacketResult{EncodePacketError::kNone, bytes_written, nonce};
++  }
++};
++
++template <typename TApi>
++EncodePacketResult EncodePacket(PreparedPacketContext& prepared,
++                                ApiContext<TApi>&& data,
++                                DataBuffer& out) {
++  out = std::move(data).Pack();
++  return prepared.TakeNonce(out.size());
++}
++
++}  // namespace ae::prepared_packet
++
++#endif  // AETHER_PREPARED_PACKET_PACKET_ENCODER_H_
+diff --git a/aether/server_connections/client_server_connection.cpp b/aether/server_connections/client_server_connection.cpp
+index 04ee2901..bd523b8b 100644
+--- a/aether/server_connections/client_server_connection.cpp
++++ b/aether/server_connections/client_server_connection.cpp
+@@ -1,3 +1,6 @@
++#include <type_traits>
++#include <optional>
++#include <algorithm>
+ /*
+  * Copyright 2024 Aethernet Inc.
+  *
+@@ -142,6 +145,7 @@ ClientServerConnection::ClientServerConnection(AeContext const& ae_context,
+                                                Ptr<Client> const& client,
+                                                Ptr<Server> const& server)
+     : ae_context_{ae_context},
++      client_{client},
+       server_{server},
+       ephemeral_uid_{client->ephemeral_uid()},
+       crypto_provider_{std::make_unique<
+@@ -201,6 +205,86 @@ ServerConnection& ClientServerConnection::server_connection() {
+   return server_connection_.server_connection;
+ }
+ 
++std::optional<prepared_packet::PreparedSendMessageBlock>
++ClientServerConnection::ExportPreparedSendMessageBlock(
++    Uid target_uid, std::uint32_t reserve_nonce_count) {
++  auto client = client_.Lock();
++  auto server = server_.Lock();
++
++  if (!client || !server || (reserve_nonce_count == 0)) {
++    return std::nullopt;
++  }
++
++  std::optional<prepared_packet::PreparedUdpEndpoint> prepared_endpoint;
++
++  for (auto const& e : server->endpoints) {
++    if (e.protocol != Protocol::kUdp) {
++      continue;
++    }
++
++    prepared_packet::PreparedUdpEndpoint candidate;
++    candidate.port = e.port;
++
++    bool is_ip = false;
++
++    std::visit(
++        [&](auto const& addr) {
++          using T = std::decay_t<decltype(addr)>;
++
++          if constexpr (std::is_same_v<T, IpV4Addr>) {
++            candidate.version = prepared_packet::PreparedIpVersion::kIpV4;
++            for (std::size_t i = 0; i < 4; ++i) {
++              candidate.ip[i] = addr.ipv4_value[i];
++            }
++            is_ip = true;
++          } else if constexpr (std::is_same_v<T, IpV6Addr>) {
++            candidate.version = prepared_packet::PreparedIpVersion::kIpV6;
++            for (std::size_t i = 0; i < 16; ++i) {
++              candidate.ip[i] = addr.ipv6_value[i];
++            }
++            is_ip = true;
++          }
++        },
++        e.address);
++
++    if (is_ip) {
++      prepared_endpoint = candidate;
++      break;
++    }
++  }
++
++  if (!prepared_endpoint) {
++    return std::nullopt;
++  }
++
++  auto* server_key = client->server_state(server->server_id);
++  if (server_key == nullptr) {
++    return std::nullopt;
++  }
++
++  prepared_packet::PreparedSendMessageBlock block;
++  block.endpoint = *prepared_endpoint;
++  block.sender_ephemeral_uid = ephemeral_uid_;
++  block.target_uid = target_uid;
++  block.client_to_server_key = server_key->client_to_server();
++
++  // Store current nonce. EncodePacket() will call Next() before encryption,
++  // matching existing ClientKeyProvider behavior.
++  block.next_nonce = server_key->nonce();
++  block.nonce_left = reserve_nonce_count;
++  block.nonce_index = 0;
++
++  // Burn/reserve the same nonce range in the full client,
++  // so the normal Aether path cannot reuse it later.
++  for (std::uint32_t i = 0; i < reserve_nonce_count; ++i) {
++    server_key->Next();
++  }
++
++  return block;
++}
++
++
++
+ void ClientServerConnection::OutData(DataBuffer const& data) {
+   auto parser = ApiParser{protocol_context_, data};
+   parser.Parse(client_api_unsafe_);
+diff --git a/aether/server_connections/client_server_connection.h b/aether/server_connections/client_server_connection.h
+index 2c5abb42..aee479b6 100644
+--- a/aether/server_connections/client_server_connection.h
++++ b/aether/server_connections/client_server_connection.h
+@@ -17,6 +17,9 @@
+ #ifndef AETHER_SERVER_CONNECTIONS_CLIENT_SERVER_CONNECTION_H_
+ #define AETHER_SERVER_CONNECTIONS_CLIENT_SERVER_CONNECTION_H_
+ 
++#include <optional>
++#include <cstdint>
++
+ #include "aether/common.h"
+ #include "aether/ae_context.h"
+ #include "aether/ae_actions/ping.h"
+@@ -29,6 +32,7 @@
+ #include "aether/work_cloud_api/work_server_api/authorized_api.h"
+ 
+ #include "aether/server_connections/server_connection.h"
++#include "aether/prepared_packet/packet_encoder.h"
+ 
+ namespace ae {
+ class Client;
+@@ -75,11 +79,16 @@ class ClientServerConnection {
+ 
+   ServerConnection& server_connection();
+ 
++  std::optional<prepared_packet::PreparedSendMessageBlock>
++  ExportPreparedSendMessageBlock(Uid target_uid,
++                                 std::uint32_t reserve_nonce_count);
++
+  private:
+   void OutData(DataBuffer const& data);
+   void ChannelChanged();
+ 
+   AeContext ae_context_;
++  PtrView<Client> client_;
+   PtrView<Server> server_;
+   Uid ephemeral_uid_;
+ 
+diff --git a/aether/stream_api/api_call_adapter.h b/aether/stream_api/api_call_adapter.h
+index a5326a75..7ef95ca5 100644
+--- a/aether/stream_api/api_call_adapter.h
++++ b/aether/stream_api/api_call_adapter.h
+@@ -18,11 +18,106 @@
+ #define AETHER_STREAM_API_API_CALL_ADAPTER_H_
+ 
+ #include <utility>
++#include <limits>
++#include <iostream>
++#include <cstdint>
++#include <cstddef>
++#include <cassert>
+ 
+ #include "aether/stream_api/istream.h"
+ #include "aether/api_protocol/api_context.h"
++#include "aether/prepared_packet/packet_encoder.h"
++#include "aether/types/data_buffer.h"
+ 
+ namespace ae {
++
++// FASTTX_STEP3_ENCODE_PACKET_API
++namespace fast_tx_internal {
++
++enum class EncodePacketError {
++  kNone = 0,
++  kNonceExhausted,
++  kOutputBufferTooSmall,
++  kPayloadTooLarge,
++  kEncodeFailed,
++};
++
++inline char const* ToString(EncodePacketError error) {
++  switch (error) {
++    case EncodePacketError::kNone:
++      return "none";
++    case EncodePacketError::kNonceExhausted:
++      return "nonce_exhausted";
++    case EncodePacketError::kOutputBufferTooSmall:
++      return "output_buffer_too_small";
++    case EncodePacketError::kPayloadTooLarge:
++      return "payload_too_large";
++    case EncodePacketError::kEncodeFailed:
++      return "encode_failed";
++  }
++  return "unknown";
++}
++
++struct EncodePacketReport {
++  EncodePacketError error = EncodePacketError::kNone;
++  std::size_t bytes_written = 0;
++  std::uint64_t nonce_used = 0;
++
++  explicit operator bool() const { return error == EncodePacketError::kNone; }
++};
++
++// Endpoint intentionally stays outside.
++// External code will own ip:port and raw UDP socket.
++// This struct must contain only data needed by Aether packet encoding.
++struct PreparedPacketEncoder {
++  std::uint64_t next_nonce = 0;
++  std::uint64_t nonce_limit = (std::numeric_limits<std::uint64_t>::max)();
++  std::size_t max_packet_size = 1200;
++
++  EncodePacketReport TakeNonce() {
++    if (next_nonce == nonce_limit) {
++      return EncodePacketReport{EncodePacketError::kNonceExhausted, 0, 0};
++    }
++
++    auto nonce = next_nonce;
++    ++next_nonce;
++
++    return EncodePacketReport{EncodePacketError::kNone, 0, nonce};
++  }
++};
++
++// Future external shape:
++//
++//   EncodePacketResult EncodePacket(PreparedPacketEncoder& prepared,
++//                                   Span<const std::uint8_t> payload,
++//                                   DataBuffer& out);
++//
++// Current internal step keeps old Aether path alive by using ByteIStream as out.
++struct EncodePacketResult {
++  EncodePacketReport report;
++  WriteAction* action = nullptr;
++
++  explicit operator bool() const {
++    return static_cast<bool>(report) && (action != nullptr);
++  }
++};
++
++template <typename TApi>
++EncodePacketResult EncodePacket(PreparedPacketEncoder& prepared,
++                                ApiContext<TApi>&& data,
++                                ByteIStream& out) {
++  auto report = prepared.TakeNonce();
++  if (!report) {
++    return EncodePacketResult{report, nullptr};
++  }
++
++  auto& action = out.Write(std::move(data));
++
++  return EncodePacketResult{report, &action};
++}
++
++}  // namespace fast_tx_internal
++
+ /**
+  * \brief Api method call adapter to automatically flush the packet after all
+  * method calls.
+@@ -35,7 +130,21 @@ class ApiCallAdapter {
+ 
+   AE_CLASS_MOVE_ONLY(ApiCallAdapter)
+ 
+-  WriteAction& Flush() { return byte_stream_->Write(std::move(api_context_)); }
++  WriteAction& Flush() {
++    fast_tx_internal::PreparedPacketEncoder prepared{};
++
++    auto result = fast_tx_internal::EncodePacket(
++        prepared, std::move(api_context_), *byte_stream_);
++
++    if (!result) {
++      std::cerr << "FastTx EncodePacket failed: "
++                << fast_tx_internal::ToString(result.report.error)
++                << "\n";
++      assert(false);
++    }
++
++    return *result.action;
++  }
+ 
+   ApiContext<TApi>& operator->() { return api_context_; }
+ 
