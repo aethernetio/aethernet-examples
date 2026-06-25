@@ -32,29 +32,8 @@ set(USER_CONFIG user_config.h CACHE PATH "" FORCE)
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
 include(../cmake/CPM.cmake)
-CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#main")
+CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#prepared-packet-v0")
 
 add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE prepared-ping.cpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE aether)
-
-set(AETHER_PREPARED_PACKET_DEP
-    "${CMAKE_BINARY_DIR}/_deps/aether-client-cpp-src")
-
-set(AETHER_PREPARED_PACKET_PATCH
-    "${CMAKE_CURRENT_LIST_DIR}/aether-prepared-packet.patch")
-
-add_custom_target(aether_prepared_packet_patch
-    COMMAND "${CMAKE_COMMAND}"
-            "-DAETHER_PREPARED_PACKET_DEP=${AETHER_PREPARED_PACKET_DEP}"
-            "-DAETHER_PREPARED_PACKET_PATCH=${AETHER_PREPARED_PACKET_PATCH}"
-            -P "${CMAKE_CURRENT_LIST_DIR}/apply_aether_prepared_packet_patch.cmake"
-    COMMENT "Applying prepared-packet patch to aether-client-cpp")
-
-if(TARGET aether)
-  add_dependencies(aether aether_prepared_packet_patch)
-endif()
-
-if(TARGET prepared-ping-example)
-  add_dependencies(prepared-ping-example aether_prepared_packet_patch)
-endif()
