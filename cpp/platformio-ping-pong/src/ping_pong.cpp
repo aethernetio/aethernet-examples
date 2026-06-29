@@ -86,7 +86,7 @@ class Alice {
   ae::AetherApp* aether_app_;
   ae::Client::ptr client_alice_;
   TimeSynchronizer* time_synchronizer_;
-  ae::RcPtr<ae::P2pStream> p2pstream_;
+  ae::P2pStream p2pstream_;
   ae::RepeatableTask<ae::AeContext> interval_sender_;
   ae::Subscription receive_data_sub_;
   ae::MultiSubscription send_subs_;
@@ -99,13 +99,13 @@ class Bob {
                TimeSynchronizer& time_synchronizer);
 
  private:
-  void OnNewStream(ae::RcPtr<ae::P2pStream> message_stream);
+  void OnNewStream(ae::P2pPortHandle p2p_port);
   void OnMessageReceived(ae::DataBuffer const& data_buffer);
 
   ae::AetherApp* aether_app_;
   ae::Client::ptr client_bob_;
   TimeSynchronizer* time_synchronizer_;
-  ae::RcPtr<ae::P2pStream> p2pstream_;
+  std::unique_ptr<ae::P2pStream> p2pstream_;
   ae::Subscription new_stream_receive_sub_;
   ae::Subscription message_receive_sub_;
 };
@@ -174,11 +174,11 @@ Alice::Alice(ae::AetherApp& aether_app, ae::Client::ptr client_alice,
     : aether_app_{&aether_app},
       client_alice_{std::move(client_alice)},
       time_synchronizer_{&time_synchronizer},
-      p2pstream_{
-          client_alice_->message_stream_manager().CreateStream(bobs_uid)},
+      p2pstream_{*aether_app_, client_alice_.Load(), bobs_uid,
+                 client_alice_->message_stream_manager().CreatePort(bobs_uid)},
       interval_sender_{*aether_app_, [this]() { SendMessage(); },
-                       std::chrono::milliseconds{5000}},
-      receive_data_sub_{p2pstream_->out_data_event().Subscribe(
+                       std::chrono::seconds{5}},
+      receive_data_sub_{p2pstream_.out_data_event().Subscribe(
           ae::MethodPtr<&Alice::ResponseReceived>{this})} {}
 
 void Alice::SendMessage() {
@@ -188,7 +188,7 @@ void Alice::SendMessage() {
   time_synchronizer_->SetPingSentTime(current_time);
 
   std::cout << ae::Format("[{:%H:%M:%S}] Alice sends \"ping\"'\n", ae::Now());
-  p2pstream_->Write({std::begin(ping_message), std::end(ping_message)});
+  p2pstream_.Write({std::begin(ping_message), std::end(ping_message)});
 }
 
 void Alice::ResponseReceived(ae::DataBuffer const& data_buffer) {
@@ -208,11 +208,13 @@ Bob::Bob(ae::AetherApp& aether_app, ae::Client::ptr client_bob,
       client_bob_{std::move(client_bob)},
       time_synchronizer_{&time_synchronizer},
       new_stream_receive_sub_{
-          client_bob_->message_stream_manager().new_stream_event().Subscribe(
+          client_bob_->message_stream_manager().new_port_event().Subscribe(
               ae::MethodPtr<&Bob::OnNewStream>{this})} {}
 
-void Bob::OnNewStream(ae::RcPtr<ae::P2pStream> message_stream) {
-  p2pstream_ = std::move(message_stream);
+void Bob::OnNewStream(ae::P2pPortHandle p2p_port) {
+  p2pstream_ = std::make_unique<ae::P2pStream>(*aether_app_, client_bob_.Load(),
+                                               p2p_port.destination(),
+                                               std::move(p2p_port));
   message_receive_sub_ = p2pstream_->out_data_event().Subscribe(
       ae::MethodPtr<&Bob::OnMessageReceived>{this});
 }
