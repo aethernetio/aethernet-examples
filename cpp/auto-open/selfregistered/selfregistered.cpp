@@ -54,7 +54,10 @@ void BobMeetAlice(ae::Client::ptr const& alice_client,
                   ae::Client::ptr const& bob_client) {
   context->bob_stream = ae::make_unique<ae::P2pSafeStream>(
       *context->aether_app, kSafeStreamConfig,
-      bob_client->message_stream_manager().CreateStream(alice_client->uid()));
+      std::make_shared<ae::P2pStream>(
+          *context->aether_app, bob_client.Load(), alice_client->uid(),
+          bob_client->message_stream_manager().CreatePort(
+              alice_client->uid())));
 
   auto bob_say = std::string_view{"Hello"};
   context->bob_stream->Write({std::begin(bob_say), std::end(bob_say)})
@@ -77,7 +80,10 @@ void BobMeetAlice(ae::Client::ptr const& alice_client,
 
   context->alice_stream = ae::make_unique<ae::P2pSafeStream>(
       *context->aether_app, kSafeStreamConfig,
-      alice_client->message_stream_manager().CreateStream(bob_client->uid()));
+      std::make_shared<ae::P2pStream>(
+          *context->aether_app, alice_client.Load(), bob_client->uid(),
+          alice_client->message_stream_manager().CreatePort(
+              bob_client->uid())));
 
   context->alice_stream->out_data_event().Subscribe([&](auto const& data) {
     auto str = std::string_view{reinterpret_cast<char const*>(data.data()),
