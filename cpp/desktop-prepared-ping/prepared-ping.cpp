@@ -27,9 +27,12 @@
 
 #include "aether/all.h"
 #include "aether/prepared_packet/packet_encoder.h"
+#include "aether/prepared_packet/prepare_send_message.h"
 
 static constexpr auto kParentUid =
     ae::Uid::FromString("3ac93165-3d37-4970-87a6-fa4ee27744e4");
+
+static constexpr std::uint32_t kReserveNonceCount = 1024;
 
 class TimeSynchronizer {
  public:
@@ -46,7 +49,7 @@ class TimeSynchronizer {
   ae::TimePoint pong_sent_time_;
 };
 
-// Alice sends "ping"s to Bob
+// Alice sends "ping"s to Bob via prepared packet encoding + external UDP.
 class Alice {
  public:
   explicit Alice(ae::AetherApp& aether_app, ae::Client::ptr client_alice,
@@ -55,6 +58,7 @@ class Alice {
  private:
   void SendMessage();
   void ResponseReceived(ae::DataBuffer const& data_buffer);
+  bool TryPrepareBlock();
 
   ae::AetherApp* aether_app_;
   ae::Client::ptr client_alice_;
@@ -66,14 +70,14 @@ class Alice {
   std::optional<ae::prepared_packet::PreparedSendMessageBlock> prepared_block_;
 };
 
-// Bob answers "pong" to each "ping"
+// Bob receives pings and logs delivery latency.
 class Bob {
  public:
   explicit Bob(ae::AetherApp& aether_app, ae::Client::ptr client_bob,
                TimeSynchronizer& time_synchronizer);
 
  private:
-  void OnNewStream(ae::RcPtr<ae::P2pStream> message_stream);
+  void OnNewPort(ae::P2pPortHandle handle);
   void OnMessageReceived(ae::DataBuffer const& data_buffer);
 
   ae::AetherApp* aether_app_;
@@ -91,7 +95,6 @@ int main() {
   std::unique_ptr<Bob> bob;
   TimeSynchronizer time_synchronizer;
 
-  // register or load clients
   auto& bob_select = aether_app->aether()->SelectClient(kParentUid, "Bob");
   bob_select.result_event().Subscribe([&](auto const& bob_res) {
     if (bob_res) {
@@ -104,7 +107,6 @@ int main() {
             if (alice_res) {
               alice = ae::make_unique<Alice>(*aether_app, alice_res.value(),
                                              time_synchronizer, uid);
-              // Save the current aether state
               aether_app->aether().Save();
             } else {
               aether_app->Exit(1);
@@ -140,18 +142,20 @@ Alice::Alice(ae::AetherApp& aether_app, ae::Client::ptr client_alice,
     : aether_app_{&aether_app},
       client_alice_{std::move(client_alice)},
       time_synchronizer_{&time_synchronizer},
-      p2pstream_{
-          client_alice_->message_stream_manager().CreateStream(bobs_uid)},
-      interval_sender_{*aether_app_, [this]() { SendMessage(); },
-                       std::chrono::seconds{5}},
-      receive_data_sub_{p2pstream_->out_data_event().Subscribe(
-          ae::MethodPtr<&Alice::ResponseReceived>{this})} {}
-
+      interval_sender_{aether_app, [this]() { SendMessage(); },
+                       std::chrono::seconds{1}} {
+  auto handle = client_alice_->message_stream_manager().CreatePort(bobs_uid);
+  p2pstream_ = ae::MakeRcPtr<ae::P2pStream>(
+      ae::AeContext{aether_app}, client_alice_.Load(), bobs_uid,
+      std::move(handle));
+  receive_data_sub_ = p2pstream_->out_data_event().Subscribe(
+      ae::MethodPtr<&Alice::ResponseReceived>{this});
+}
 
 namespace {
 
-std::string PreparedPacketEndpointTextV0(
-    ae::prepared_packet::PreparedUdpEndpoint const& endpoint) {
+std::string PreparedEndpointText(
+    ae::prepared_packet::PreparedEndpoint const& endpoint) {
   char buf[INET6_ADDRSTRLEN]{};
 
   if (endpoint.version == ae::prepared_packet::PreparedIpVersion::kIpV4) {
@@ -169,14 +173,18 @@ std::string PreparedPacketEndpointTextV0(
   return ss.str();
 }
 
-bool PreparedPacketSendUdpDatagramV0(
-    ae::prepared_packet::PreparedUdpEndpoint const& endpoint,
-    ae::DataBuffer const& packet) {
+bool SendUdpDatagram(ae::prepared_packet::PreparedEndpoint const& endpoint,
+                     ae::DataBuffer const& packet) {
+  if (endpoint.protocol != ae::Protocol::kUdp) {
+    std::cerr << "[prepared-packet] endpoint protocol is not UDP\n";
+    return false;
+  }
+
   sockaddr_storage addr{};
   socklen_t addr_len = 0;
   int fd = -1;
 
-  auto endpoint_text = PreparedPacketEndpointTextV0(endpoint);
+  auto endpoint_text = PreparedEndpointText(endpoint);
   if (endpoint_text.empty()) {
     std::cerr << "[prepared-packet] invalid prepared IP endpoint\n";
     return false;
@@ -233,38 +241,45 @@ bool PreparedPacketSendUdpDatagramV0(
 
 }  // namespace
 
-void Alice::SendMessage() {
-  auto current_time = ae::Now();
-  constexpr std::string_view ping_message = "ping";
+bool Alice::TryPrepareBlock() {
+  if (prepared_block_) {
+    return true;
+  }
+  if (!p2pstream_) {
+    return false;
+  }
 
-  time_synchronizer_->SetPingSentTime(current_time);
+  if (p2pstream_->stream_info().link_state != ae::LinkState::kLinked) {
+    return false;
+  }
+
+  std::cout << ae::Format(
+      "[{:%H:%M:%S}] Alice prepares PreparedSendMessageBlock\n", ae::Now());
+
+  prepared_block_ =
+      ae::prepared_packet::PrepareSendMessage(*p2pstream_, kReserveNonceCount);
 
   if (!prepared_block_) {
-    std::cout << ae::Format(
-        "[{:%H:%M:%S}] Alice tries to export PreparedSendMessageBlock\n",
-        ae::Now());
+    std::cerr << "[prepared-packet] PrepareSendMessage failed\n";
+    return false;
+  }
 
-    if (p2pstream_) {
-      prepared_block_ = p2pstream_->ExportPreparedSendMessageBlock(1024);
-    }
+  std::cout << ae::Format(
+      "[{:%H:%M:%S}] Alice prepared block; dropping full Alice send path\n",
+      ae::Now());
 
-    if (!prepared_block_) {
-      std::cout << ae::Format(
-          "[{:%H:%M:%S}] Prepared block is not ready; using legacy Aether path\n",
-          ae::Now());
+  send_subs_.Reset();
+  p2pstream_.Reset();
+  client_alice_ = {};
+  return true;
+}
 
-      p2pstream_->Write({std::begin(ping_message), std::end(ping_message)});
-      return;
-    }
+void Alice::SendMessage() {
+  time_synchronizer_->SetPingSentTime(ae::Now());
+  constexpr std::string_view ping_message = "ping";
 
-    std::cout << ae::Format(
-        "[{:%H:%M:%S}] Alice exported PreparedSendMessageBlock; "
-        "dropping full Alice send path\n",
-        ae::Now());
-
-    send_subs_.Reset();
-    p2pstream_.Reset();
-    client_alice_ = {};
+  if (!TryPrepareBlock()) {
+    return;
   }
 
   ae::DataBuffer payload{std::begin(ping_message), std::end(ping_message)};
@@ -275,12 +290,10 @@ void Alice::SendMessage() {
 
   if (!result) {
     if (result.error == ae::prepared_packet::EncodePacketError::kNonceExhausted) {
-      std::cerr << "[prepared-packet] nonce range exhausted; "
-                << "desktop-v0 needs full Aether reprepare path\n";
+      std::cerr << "[prepared-packet] nonce range exhausted\n";
     } else {
       std::cerr << "[prepared-packet] EncodePacket failed: "
-                << ae::prepared_packet::ToString(result.error)
-                << "; desktop-v0 needs legacy Aether fallback\n";
+                << ae::prepared_packet::ToString(result.error) << "\n";
     }
     return;
   }
@@ -289,9 +302,8 @@ void Alice::SendMessage() {
       "[{:%H:%M:%S}] Alice sends prepared packet \"ping\"\n",
       ae::Now());
 
-  PreparedPacketSendUdpDatagramV0(prepared_block_->endpoint, packet);
+  SendUdpDatagram(prepared_block_->endpoint, packet);
 }
-
 
 void Alice::ResponseReceived(ae::DataBuffer const& data_buffer) {
   auto pong_message = std::string_view{
@@ -310,11 +322,13 @@ Bob::Bob(ae::AetherApp& aether_app, ae::Client::ptr client_bob,
       client_bob_{std::move(client_bob)},
       time_synchronizer_{&time_synchronizer},
       new_stream_receive_sub_{
-          client_bob_->message_stream_manager().new_stream_event().Subscribe(
-              ae::MethodPtr<&Bob::OnNewStream>{this})} {}
+          client_bob_->message_stream_manager().new_port_event().Subscribe(
+              ae::MethodPtr<&Bob::OnNewPort>{this})} {}
 
-void Bob::OnNewStream(ae::RcPtr<ae::P2pStream> message_stream) {
-  p2pstream_ = std::move(message_stream);
+void Bob::OnNewPort(ae::P2pPortHandle handle) {
+  auto dest = handle.destination();
+  p2pstream_ = ae::MakeRcPtr<ae::P2pStream>(
+      ae::AeContext{*aether_app_}, client_bob_.Load(), dest, std::move(handle));
   message_receive_sub_ = p2pstream_->out_data_event().Subscribe(
       ae::MethodPtr<&Bob::OnMessageReceived>{this});
 }
