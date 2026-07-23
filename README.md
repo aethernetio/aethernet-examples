@@ -1,28 +1,52 @@
-# Æthernet
+# Æthernet Examples
 
-Æthernet is a cloud solution designed to build back-ends that seamlessly manage a fleet of IoT devices, web, desktop, or mobile application instances at any scale, in real-time. With no registration required, Æthernet offers both a free tier and a pay-as-you-go pricing model, providing an efficient and flexible cloud infrastructure for your applications.
+Runnable examples for connecting embedded devices and applications through Æthernet.
 
-## Repository Overview
+The examples cover C++, ESP32, Java, and TypeScript integrations, including self-provisioning and direct message exchange between clients.
 
-This repository contains examples of how to integrate the Æthernet library into various platforms to connect with the Æthernet cloud service. The simplest example included demonstrates two clients that self-provision every time the application runs. These two clients engage in a ping-pong messaging exchange every 5 seconds.
+[Documentation](https://aethernet.io/documentation) · [Tutorials](https://aethernet.io/tutorial)
 
-### Supported Platforms
+## Clone
 
-- **Java**
-- **C++** (Linux/macOS/Windows)
-- **ESP32** (Arduino, Visual Studio Code + PlatformIO + ESP-IDF)
-- **TypeScript**
+Some examples use Git submodules:
 
-### Build Instructions
+```bash
+git clone --recurse-submodules https://github.com/aethernetio/aethernet-examples.git
+cd aethernet-examples
+```
 
-Each example folder contains specific build instructions for the corresponding platform to help you get up and running quickly.
+If the repository was cloned without submodules:
 
-## Additional resources
+```bash
+git submodule update --init --recursive
+```
 
-For a more detailed description of the service, usage guidelines, and further documentation, please visit [aethernet.io](https://aethernet.io).
+## SDKs
 
-Client libraries are here:
-- **Java** - [github.com/aethernetio/client-java](https://github.com/aethernetio/client-java)
-- **C++** - [github.com/aethernetio/aether-client-cpp](https://github.com/aethernetio/aether-client-cpp)
-- **Arduino** - [github.com/aethernetio/aether-client-arduino-library](https://github.com/aethernetio/aether-client-arduino-library)
-- **TypeScript** - [https://github.com/aethernetio/client-ts](https://github.com/aethernetio/client-ts)
+| Platform | SDK |
+| --- | --- |
+| C++ | [aether-client-cpp](https://github.com/aethernetio/aether-client-cpp) |
+| Arduino / ESP32 | [aether-client-arduino-library](https://github.com/aethernetio/aether-client-arduino-library) |
+| Java | [client-java](https://github.com/aethernetio/client-java) |
+| TypeScript | [client-ts](https://github.com/aethernetio/client-ts) |
+
+## Example categories
+
+- basic client-to-client messaging;
+- ESP32 and embedded-device integrations;
+- environmental and temperature-sensor telemetry;
+- application-side clients for receiving and displaying device data.
+
+Each example directory contains the configuration and build files for its platform. Start with the README inside that directory when one is present.
+
+## Credentials and device configuration
+
+Never commit Wi-Fi passwords, production keys, registry credentials, or generated client state. Use local configuration files or environment variables and keep them outside version control.
+
+## Reporting problems
+
+Open an issue with the example path, operating system or board, toolchain version, build command, and complete error output.
+
+## License
+
+See [LICENSE](LICENSE).
