@@ -1,0 +1,123 @@
+name: Route V7 Temporary Preview
+
+on:
+  push:
+    branches:
+      - route-v7-preview-20260827
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 185
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Mirror current Route v6 candidate
+        shell: bash
+        env:
+          SOURCE: https://tommy-chorus-oakland-respiratory.trycloudflare.com
+        run: |
+          set -euo pipefail
+          rm -rf preview-site
+          mkdir -p preview-site/tools preview-site/assets/css preview-site/image/svg preview-site/image
+          wget -q -r -l 2 -p -np -nH -P preview-site "$SOURCE/" || true
+          curl -fsS "$SOURCE/candidate-a.html" -o preview-site/candidate-a.html
+          curl -fsS "$SOURCE/network-map-candidate-a.js" -o preview-site/network-map-candidate-a.js
+          curl -fsS "$SOURCE/network-map-webgl-candidate-a.js" -o preview-site/network-map-webgl-candidate-a.js
+          curl -fsS "$SOURCE/network-map.css" -o preview-site/network-map.css
+          curl -fsS "$SOURCE/script.min.js" -o preview-site/script.min.js
+          curl -fsS "$SOURCE/aether-client.min.js" -o preview-site/aether-client.min.js
+          curl -fsS "$SOURCE/assets/css/home.min.css" -o preview-site/assets/css/home.min.css
+          for asset in mainAnim1.svg mainAnim2.svg mainAnim3.svg logo.svg; do
+            curl -fsS "$SOURCE/image/svg/$asset" -o "preview-site/image/svg/$asset"
+          done
+          curl -fsS "$SOURCE/image/github-mark-white.webp" -o preview-site/image/github-mark-white.webp
+          cp tools/route_v7_gen.py preview-site/tools/
+
+      - name: Generate candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd preview-site
+          python3 tools/route_v7_gen.py
+          node --check network-map-interactive-soft.js
+          node --check network-map-interactive-crisp.js
+          test -s interactive-soft.html
+          test -s interactive-crisp.html
+          grep -q 'Your location (approx.)' network-map-interactive-soft.js
+          grep -q 'focusOnServerLocation' network-map-interactive-soft.js
+
+      - name: Start local server
+        shell: bash
+        run: |
+          nohup python3 -m http.server 8000 --bind 127.0.0.1 --directory preview-site >/tmp/route-v7-http.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:8000/route-v7-variants.html >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/route-v7-http.log
+          exit 1
+
+      - name: Visual smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p smoke
+          flags='--headless=new --no-sandbox --disable-dev-shm-usage --enable-unsafe-swiftshader --ignore-gpu-blocklist --hide-scrollbars --virtual-time-budget=5000'
+          for variant in interactive-soft interactive-crisp; do
+            timeout 45s google-chrome $flags --window-size=1600,920 --screenshot="smoke/${variant}-desktop.png" "http://127.0.0.1:8000/${variant}.html" >"smoke/${variant}-desktop.log" 2>&1
+            timeout 45s google-chrome $flags --window-size=390,844 --screenshot="smoke/${variant}-mobile.png" "http://127.0.0.1:8000/${variant}.html" >"smoke/${variant}-mobile.log" 2>&1
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: route-v7-smoke
+          path: smoke
+
+      - name: Start public tunnel
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --silent --show-error https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /tmp/cloudflared
+          chmod +x /tmp/cloudflared
+          nohup /tmp/cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8000 >/tmp/route-v7-cloudflared.log 2>&1 &
+          URL=''
+          for i in {1..60}; do
+            URL=$(grep -Eo 'https://[-a-z0-9]+\.trycloudflare\.com' /tmp/route-v7-cloudflared.log | head -n1 || true)
+            [ -n "$URL" ] && break
+            sleep 1
+          done
+          test -n "$URL"
+          printf '%s\n' "$URL" > route-v7-preview-url.txt
+          echo "ROUTE_V7_URL=$URL" >> "$GITHUB_ENV"
+          echo "$URL"
+
+      - name: Wait for public preview
+        shell: bash
+        run: |
+          for i in {1..60}; do
+            curl -fsS "$ROUTE_V7_URL/route-v7-variants.html" >/dev/null 2>&1 && exit 0
+            sleep 3
+          done
+          exit 1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: route-v7-preview-url
+          path: route-v7-preview-url.txt
+
+      - name: Keep preview alive
+        shell: bash
+        run: |
+          echo "Index: $ROUTE_V7_URL/route-v7-variants.html"
+          echo "Soft: $ROUTE_V7_URL/interactive-soft.html"
+          echo "Crisp: $ROUTE_V7_URL/interactive-crisp.html"
+          for i in {1..1080}; do
+            curl -fsS http://127.0.0.1:8000/route-v7-variants.html >/dev/null || exit 1
+            pgrep -f '/tmp/cloudflared tunnel' >/dev/null || exit 1
+            sleep 10
+          done
