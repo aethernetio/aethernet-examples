@@ -16,8 +16,5 @@
 
 #include "api/api.h"
 
-namespace ae {
-SmartHomeClientApi::SmartHomeClientApi(ProtocolContext& protocol_context)
-    : ApiClass{protocol_context}, device_state_updated{protocol_context} {}
-
-}  // namespace ae
+// The current declaration API is header-only. Wire compatibility helpers live
+// in legacy_reply.h because the SDK no longer routes request/reply promises.

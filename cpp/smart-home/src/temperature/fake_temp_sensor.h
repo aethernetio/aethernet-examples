@@ -18,24 +18,24 @@
 #define TEMPERATURE_FAKE_TEMP_SENSOR_H_
 
 #include "aether/all.h"
-
-#include "idevice.h"
 #include "api/types.h"
+#include "idevice.h"
 
 namespace ae {
 class FakeTempSensor : public IDevice {
  public:
-  explicit FakeTempSensor(ActionContext action_context);
+  explicit FakeTempSensor(AeContext const& action_context);
 
   void SetLocalId(int id) override;
   HardwareDevice description() const override;
-  ActionPtr<DeviceStateAction> GetState() override;
-  ActionPtr<DeviceStateAction> Execute(VariantData const& command) override;
+  std::shared_ptr<DeviceStateAction> GetState() override;
+  std::shared_ptr<DeviceStateAction> Execute(
+      VariantData const& command) override;
 
  private:
   float Read();
 
-  ActionContext actio_context_;
+  AeContext actio_context_;
   int local_id_{};
   float old_value_{18.F};
 };

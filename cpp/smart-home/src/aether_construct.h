@@ -20,7 +20,7 @@
 #include "aether/all.h"
 
 namespace ae {
-static RcPtr<AetherApp> construct_aether_app();
+static std::unique_ptr<AetherApp> construct_aether_app();
 }
 
 #endif  // CLOUD_AETHER_CONSTRUCT_H_

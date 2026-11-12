@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
+#include <iostream>
 #include <string_view>
 
 #include "aether/all.h"
-
 #include "commutator.h"
 #include "temperature/temperature_factory.h"
 
 #if defined ESP_PLATFORM
-#  define ESP_WIFI 1
+#define ESP_WIFI 1
 #else
-#  define ETHERNET 1
+#define ETHERNET 1
 #endif
 
 // IWYU pragma: begin_keeps
@@ -49,15 +49,17 @@ int SmartHomeMain() {
 
   std::unique_ptr<ae::Commutator> commutator;
 
+  ae::Subscription select_subscription;
   // load or register new client for smart home
-  aether_app->aether()
-      ->SelectClient(kParentUid, "smart")
-      .result_event()
-      .Subscribe([&](auto const& res) {
-        if (res) {
-          auto smart_home_client = res.value();
-          std::cout << ae::Format(
-              R"(
+  select_subscription =
+      aether_app->aether()
+          ->SelectClient(kParentUid, "smart")
+          .result_event()
+          .Subscribe([&](auto const& res) {
+            if (res) {
+              auto smart_home_client = res.value();
+              std::cout << ae::Format(
+                  R"(
 
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -68,23 +70,25 @@ REGISTERED CLIENT'S UID: {}
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
         )",
-              smart_home_client->uid());
-          commutator = std::make_unique<ae::Commutator>(smart_home_client);
+                  smart_home_client->uid());
+              commutator = std::make_unique<ae::Commutator>(*aether_app,
+                                                            smart_home_client);
 // add sensors to commutator
 #if defined ESP_PLATFORM && ESP32_HAS_TEMP_SENSOR
-          auto temp_sensor_config =
-              ae::EspTempSensorConfig{ae::TempSensorType::kEspTempSensor, {}};
-          temp_sensor_config.config = TEMPERATURE_SENSOR_CONFIG_DEFAULT(10, 50);
+              auto temp_sensor_config = ae::EspTempSensorConfig{
+                  ae::TempSensorType::kEspTempSensor, {}};
+              temp_sensor_config.config =
+                  TEMPERATURE_SENSOR_CONFIG_DEFAULT(10, 50);
 #else
-          auto temp_sensor_config =
-              ae::TempSensorConfig{ae::TempSensorType::kFakeTempSensor};
+              auto temp_sensor_config =
+                  ae::TempSensorConfig{ae::TempSensorType::kFakeTempSensor};
 #endif
-          commutator->AddDevice(ae::TemperatureFactory::CreateDevice(
-              *aether_app, &temp_sensor_config));
-        } else {
-          aether_app->Exit(1);
-        }
-      });
+              commutator->AddDevice(ae::TemperatureFactory::CreateDevice(
+                  *aether_app, &temp_sensor_config));
+            } else {
+              aether_app->Exit(1);
+            }
+          });
 
   /**
    * Application loop.

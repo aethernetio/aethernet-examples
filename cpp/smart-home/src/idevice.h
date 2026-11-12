@@ -17,17 +17,68 @@
 #ifndef IDEVICE_H_
 #define IDEVICE_H_
 
-#include "aether/all.h"
+#include <cassert>
+#include <functional>
+#include <memory>
+#include <utility>
 
+#include "aether/actions/action_context.h"
+#include "aether/clock.h"
+#include "aether/tasks/manual_task_scheduler.h"
 #include "api/types.h"
 
 namespace ae {
-class DeviceStateAction : public Action<DeviceStateAction> {
+class DeviceStateAction {
  public:
-  using Action::Action;
+  using Completion = std::function<void(DeviceStateData const&)>;
+  DeviceStateAction() = default;
+  DeviceStateAction(DeviceStateAction const&) = delete;
+  DeviceStateAction& operator=(DeviceStateAction const&) = delete;
+  virtual ~DeviceStateAction() = default;
+  void Then(Completion completion) {
+    completion_ = std::move(completion);
+    if (finished_) Deliver();
+  }
+  bool finished() const { return finished_; }
 
-  virtual UpdateStatus Update() = 0;
-  virtual DeviceStateData state_data() const = 0;
+ protected:
+  void Complete(DeviceStateData state) {
+    assert(!finished_ && "A device operation completes once");
+    if (finished_) return;
+    state_ = std::move(state);
+    finished_ = true;
+    Deliver();
+  }
+
+ private:
+  void Deliver() {
+    if (completion_) {
+      auto completion = std::exchange(completion_, {});
+      completion(state_);
+    }
+  }
+  bool finished_{};
+  DeviceStateData state_{};
+  Completion completion_;
+};
+
+// Ownership and the task subscription keep the operation alive until delivery.
+// Completion happens on a later scheduler update, after Then() can be
+// installed.
+class ScheduledDeviceState final : public DeviceStateAction {
+ public:
+  ScheduledDeviceState(ActionContext auto const& context, float value) {
+    state_.payload = VariantData{VariantDouble{value}};
+    state_.timestamp = static_cast<std::int64_t>(
+        std::chrono::duration_cast<std::chrono::seconds>(
+            Now().time_since_epoch())
+            .count());
+    task_ = context.scheduler().Task([this] { Complete(std::move(state_)); });
+  }
+
+ private:
+  DeviceStateData state_{};
+  TaskSubscription task_;
 };
 
 class IDevice {
@@ -36,8 +87,9 @@ class IDevice {
 
   virtual void SetLocalId(int id) = 0;
   virtual HardwareDevice description() const = 0;
-  virtual ActionPtr<DeviceStateAction> GetState() = 0;
-  virtual ActionPtr<DeviceStateAction> Execute(VariantData const& command) = 0;
+  virtual std::shared_ptr<DeviceStateAction> GetState() = 0;
+  virtual std::shared_ptr<DeviceStateAction> Execute(
+      VariantData const& command) = 0;
 };
 }  // namespace ae
 

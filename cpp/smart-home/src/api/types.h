@@ -17,11 +17,14 @@
 #ifndef API_TYPES_H_
 #define API_TYPES_H_
 
-#include <string>
 #include <cstdint>
 #include <optional>
+#include <string>
 
-#include "aether/all.h"
+#include "aether-miscpp/reflect/reflect.h"
+#include "aether/types/data_buffer.h"
+#include "aether/types/nullable_type.h"
+#include "aether/types/variant_type.h"
 
 namespace ae {
 

@@ -21,21 +21,13 @@
 
 #if ETHERNET
 namespace ae {
-RcPtr<AetherApp> construct_aether_app() {
-  return AetherApp::Construct(
-      AetherAppContext{}
-#  if AE_DISTILLATION
-          .AdaptersFactory([](AetherAppContext const& context) {
-            auto adapter_registry =
-                AdapterRegistry::ptr::Create(context.domain());
-            adapter_registry->Add(EthernetAdapter::ptr::Create(
-                CreateWith{context.domain()}.with_id(
-                    GlobalId::kEthernetAdapter),
-                context.aether(), context.poller(), context.dns_resolver()));
-            return adapter_registry;
-          })
-#  endif
-  );
+std::unique_ptr<AetherApp> construct_aether_app() {
+  return AetherApp::Construct(AetherAppContext{}.AddAdapterFactory(
+      [](AetherAppContext const& context) -> ObjPtr<Adapter> {
+        return EthernetAdapter::ptr::Create(
+            CreateWith{context.domain()}.with_id(GlobalId::kEthernetAdapter),
+            context.aether(), context.poller(), context.dns_resolver());
+      }));
 }
 }  // namespace ae
 

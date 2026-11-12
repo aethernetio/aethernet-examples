@@ -16,29 +16,12 @@
 
 #include "temperature/fake_temp_sensor.h"
 
-#include <cstdlib>
 #include <algorithm>
+#include <cstdlib>
 
 namespace ae {
-class FakeTempSensorDataStateAction : public DeviceStateAction {
- public:
-  FakeTempSensorDataStateAction(ActionContext action_context, float value)
-      : DeviceStateAction{action_context}, state_data_{} {
-    state_data_.payload = VariantData{VariantDouble{value}};
-    state_data_.timestamp = static_cast<std::int64_t>(
-        std::chrono::duration_cast<std::chrono::seconds>(
-            Now().time_since_epoch())
-            .count());
-  }
 
-  UpdateStatus Update() override { return UpdateStatus::Result(); }
-
-  DeviceStateData state_data() const override { return state_data_; }
-
-  DeviceStateData state_data_;
-};
-
-FakeTempSensor::FakeTempSensor(ActionContext action_context)
+FakeTempSensor::FakeTempSensor(AeContext const& action_context)
     : actio_context_{action_context} {}
 
 void FakeTempSensor::SetLocalId(int id) { local_id_ = id; }
@@ -51,11 +34,11 @@ HardwareDevice FakeTempSensor::description() const {
   return HardwareDevice{device_type};
 }
 
-ActionPtr<DeviceStateAction> FakeTempSensor::GetState() {
-  return ActionPtr<FakeTempSensorDataStateAction>{actio_context_, Read()};
+std::shared_ptr<DeviceStateAction> FakeTempSensor::GetState() {
+  return std::make_shared<ScheduledDeviceState>(actio_context_, Read());
 }
 
-ActionPtr<DeviceStateAction> FakeTempSensor::Execute(VariantData const&) {
+std::shared_ptr<DeviceStateAction> FakeTempSensor::Execute(VariantData const&) {
   return GetState();
 }
 

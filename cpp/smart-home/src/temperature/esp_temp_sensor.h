@@ -19,26 +19,25 @@
 
 #if defined ESP_PLATFORM
 
-#  include "soc/soc_caps.h"
+#include "soc/soc_caps.h"
 
-#  if SOC_TEMPERATURE_SENSOR_INTR_SUPPORT && SOC_TEMP_SENSOR_SUPPORTED
-#    define ESP32_HAS_TEMP_SENSOR 1
-#  else
-#    define ESP32_HAS_TEMP_SENSOR 0
-#  endif
+#if SOC_TEMPERATURE_SENSOR_INTR_SUPPORT && SOC_TEMP_SENSOR_SUPPORTED
+#define ESP32_HAS_TEMP_SENSOR 1
+#else
+#define ESP32_HAS_TEMP_SENSOR 0
+#endif
 
-#  if ESP32_HAS_TEMP_SENSOR
+#if ESP32_HAS_TEMP_SENSOR
 
-#    include "aether/all.h"
-#    include "driver/temperature_sensor.h"
-
-#    include "idevice.h"
-#    include "api/types.h"
+#include "aether/all.h"
+#include "api/types.h"
+#include "driver/temperature_sensor.h"
+#include "idevice.h"
 
 namespace ae {
 class EspTempSensor : public IDevice {
  public:
-  EspTempSensor(ActionContext action_context,
+  EspTempSensor(AeContext const& action_context,
                 temperature_sensor_config_t temp_sensor_config);
   ~EspTempSensor() override;
 
@@ -46,9 +45,10 @@ class EspTempSensor : public IDevice {
 
   HardwareDevice description() const override;
 
-  ActionPtr<DeviceStateAction> GetState() override;
+  std::shared_ptr<DeviceStateAction> GetState() override;
 
-  ActionPtr<DeviceStateAction> Execute(VariantData const& command) override;
+  std::shared_ptr<DeviceStateAction> Execute(
+      VariantData const& command) override;
 
   float GetTemperature();
 
@@ -56,7 +56,7 @@ class EspTempSensor : public IDevice {
   void StartSensor();
   void StopSensor();
 
-  ActionContext action_context_;
+  AeContext const& action_context_;
   int local_id_{};
   temperature_sensor_handle_t temp_sensor_ = nullptr;
   temperature_sensor_config_t temp_sensor_config_;
@@ -64,6 +64,6 @@ class EspTempSensor : public IDevice {
 
 }  // namespace ae
 
-#  endif  // ESP32_HAS_TEMP_SENSOR
+#endif  // ESP32_HAS_TEMP_SENSOR
 #endif  // ESP_PLATFORM
 #endif  // TEMPERATURE_ESP_TEMP_SENSOR_H_

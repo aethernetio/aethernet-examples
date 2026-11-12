@@ -18,28 +18,11 @@
 
 #if ESP32_HAS_TEMP_SENSOR
 
-#  include <chrono>
+#include <chrono>
 
 namespace ae {
-class EspTempDataStateAction : public DeviceStateAction {
- public:
-  EspTempDataStateAction(ActionContext action_context, float value)
-      : DeviceStateAction{action_context}, state_data_{} {
-    state_data_.payload = VariantData{VariantDouble{value}};
-    state_data_.timestamp = static_cast<std::int64_t>(
-        std::chrono::duration_cast<std::chrono::seconds>(
-            Now().time_since_epoch())
-            .count());
-  }
 
-  UpdateStatus Update() override { return UpdateStatus::Result(); }
-
-  DeviceStateData state_data() const override { return state_data_; }
-
-  DeviceStateData state_data_;
-};
-
-EspTempSensor::EspTempSensor(ActionContext action_context,
+EspTempSensor::EspTempSensor(AeContext const& action_context,
                              temperature_sensor_config_t temp_sensor_config)
     : action_context_{action_context}, temp_sensor_config_{temp_sensor_config} {
   StartSensor();
@@ -57,11 +40,12 @@ HardwareDevice EspTempSensor::description() const {
   return HardwareDevice{device_type};
 }
 
-ActionPtr<DeviceStateAction> EspTempSensor::GetState() {
-  return ActionPtr<EspTempDataStateAction>{action_context_, GetTemperature()};
+std::shared_ptr<DeviceStateAction> EspTempSensor::GetState() {
+  return std::make_shared<ScheduledDeviceState>(action_context_,
+                                                GetTemperature());
 }
 
-ActionPtr<DeviceStateAction> EspTempSensor::Execute(VariantData const&) {
+std::shared_ptr<DeviceStateAction> EspTempSensor::Execute(VariantData const&) {
   return GetState();
 }
 
