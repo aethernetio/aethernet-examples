@@ -20,36 +20,24 @@
 #include "aether_construct.h"
 
 #if defined ESP_PLATFORM
-#  if ESP_WIFI
+#if ESP_WIFI
 
 namespace ae {
-static constexpr auto wifi_init = WifiInit{
-    {ae::WifiAp{
-        ae::WifiCreds{WIFI_SSID, WIFI_PASSWORD},
-        {},
-    }},
-    ae::WiFiPowerSaveParam{},
-};
-
-RcPtr<AetherApp> construct_aether_app() {
-  return AetherApp::Construct(
-      AetherAppContext{}
-#    if AE_DISTILLATION
-          .AdaptersFactory([](AetherAppContext const& context) {
-            auto adapter_registry =
-                AdapterRegistry::ptr::Create(context.domain());
-            adapter_registry->Add(WifiAdapter::ptr::Create(
-                CreateWith{context.domain()}.with_id(GlobalId::kWiFiAdapter),
-                context.aether(), context.poller(), context.dns_resolver(),
-                wifi_init));
-            return adapter_registry;
-          })
-#    endif
-  );
+std::unique_ptr<AetherApp> construct_aether_app() {
+  return AetherApp::Construct(AetherAppContext{}.AddAdapterFactory(
+      [](AetherAppContext const& context) -> ObjPtr<Adapter> {
+        return WifiAdapter::ptr::Create(
+            CreateWith{context.domain()}.with_id(GlobalId::kWiFiAdapter),
+            context.aether(), context.poller(), context.dns_resolver(),
+            WiFiInit{.wifi_ap = {WiFiAp{.creds = {.ssid = WIFI_SSID,
+                                                  .password = WIFI_PASSWORD},
+                                        .static_ip = {}}},
+                     .psp = {}});
+      }));
 }
 
 }  // namespace ae
 
-#  endif
+#endif
 #endif
 #endif  // CLOUD_AETHER_CONSTRUCT_ESP_WIFI_H_

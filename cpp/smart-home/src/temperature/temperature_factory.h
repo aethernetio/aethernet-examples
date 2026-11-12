@@ -23,10 +23,11 @@
 #include "temperature/temp_sensor_config.h"
 
 namespace ae {
+class AeContext;
 
 class TemperatureFactory {
  public:
-  static std::unique_ptr<IDevice> CreateDevice(ActionContext action_context,
+  static std::unique_ptr<IDevice> CreateDevice(AeContext const& action_context,
                                                TempSensorConfig* config);
 };
 }  // namespace ae

@@ -18,11 +18,10 @@
 #define COMUTATOR_H_
 
 #include <map>
-#include <vector>
 #include <memory>
+#include <vector>
 
 #include "aether/all.h"
-
 #include "api/api.h"
 #include "idevice.h"
 
@@ -31,23 +30,29 @@ class Commutator {
   friend class CommutatorApiImpl;
 
  public:
-  explicit Commutator(Client::ptr const& client);
+  Commutator(AeContext const& context, Client::ptr const& client);
 
   void AddDevice(std::unique_ptr<IDevice>&& device);
 
  private:
-  void OnNewStream(RcPtr<P2pStream> stream);
-  void OnNewMessage(RcPtr<P2pStream> stream, DataBuffer const& data);
-  void SendSensorsState(RcPtr<P2pStream> const& stream);
+  void OnNewPort(P2pPortHandle& port);
+  void OnNewMessage(std::shared_ptr<P2pStream> stream, DataBuffer const& data);
+  void SendSensorsState(std::shared_ptr<P2pStream> const& stream);
 
-  PtrView<Client> client_;
+  AeContext context_;
+  Client::ptr client_;
   ProtocolContext protocol_context_;
   SmartHomeClientApi client_api_;
   std::vector<std::unique_ptr<IDevice>> devices_;
 
-  std::map<Uid, RcPtr<P2pStream>> streams_;
+  struct StreamSession {
+    std::shared_ptr<P2pStream> stream;
+    Subscription receive_sub;
+  };
+  // Replacing a peer session unsubscribes before releasing the old stream.
+  std::map<Uid, std::unique_ptr<StreamSession>> streams_;
   Subscription new_request_sub_;
-  MultiSubscription new_message_subs_;
+  std::vector<std::shared_ptr<DeviceStateAction>> pending_states_;
 };
 }  // namespace ae
 

@@ -1,19 +1,24 @@
 ## Build Instructions
 ### Init dependencies
-It uses git submodules to manage dependencies.
-```
-git submodule update --remote ./aether-client-cpp
-```
+The CMake projects fetch the exact published SDK revision recorded in
+`src/CMakeLists.txt` through CPM. Local SDK development can use
+`-DCPM_aether-client-cpp_SOURCE=/absolute/path/to/aether-client-cpp`.
 
 ### For desktop
 For desktop a regular cmake project is used.
 Make build directory, cd to it and configure cmake.
 ```sh
-mkdir build
-cd build
-cmake ..
-cmake --build . --parallel
+cmake -S . -B build -DSMART_HOME_BUILD_TESTS=ON
+cmake --build build --config Release --parallel
+ctest --test-dir build -C Release --output-on-failure
 ```
+
+The offline test freezes the original Java P2P wire protocol, including request
+IDs, typed payloads, result/error replies and deferred device completion. See
+[fixture provenance](tests/README.md) and the repository's
+[validation matrix](../../docs/sdk-compatibility.md) for verification limits.
+The SDK's push API is adapted locally; Java method IDs and DTO fields stay the
+same. Device operations remain asynchronous.
 
 ### ESP IDF
 For ESP IDF the same CMakeLists.txt is used.

@@ -16,76 +16,58 @@
 
 #include "commutator_api_impl.h"
 
-#include "idevice.h"
-#include "commutator.h"
+#include <algorithm>
+
+#include "api/legacy_reply.h"
 
 namespace ae {
-CommutatorApiImpl::CommutatorApiImpl(Commutator& commutator,
-                                     RcPtr<P2pStream> stream)
-    : SmartHomeCommutatorApi{commutator.protocol_context_},
-      commutator_{&commutator},
-      stream_{std::move(stream)} {}
+CommutatorApiImpl::CommutatorApiImpl(
+    std::vector<std::unique_ptr<IDevice>>& devices,
+    std::vector<std::shared_ptr<DeviceStateAction>>& pending, Reply reply,
+    std::function<void()> query_all)
+    : devices_{devices},
+      pending_{pending},
+      reply_{std::move(reply)},
+      query_all_{std::move(query_all)} {}
 
-void CommutatorApiImpl::GetSystemStructure(
-    PromiseResult<std::vector<HardwareDevice>> result) {
-  std::vector<HardwareDevice> hw_devices;
-  hw_devices.reserve(commutator_->devices_.size());
-  for (auto& d : commutator_->devices_) {
-    hw_devices.emplace_back(d->description());
+void CommutatorApiImpl::GetSystemStructure(RequestId request_id) {
+  std::vector<HardwareDevice> descriptions;
+  descriptions.reserve(devices_.size());
+  for (auto const& device : devices_)
+    descriptions.push_back(device->description());
+  reply_(smart_home_wire::Result(request_id, std::move(descriptions)));
+}
+
+void CommutatorApiImpl::ReplyWhenReady(
+    std::shared_ptr<DeviceStateAction> operation, RequestId request_id) {
+  std::erase_if(pending_, [](auto const& op) { return op->finished(); });
+  pending_.push_back(operation);
+  // The API parser handler is temporary. The completion owns its reply target,
+  // and never captures the handler or its protocol context.
+  operation->Then([reply = reply_, request_id](auto const& state) {
+    reply(smart_home_wire::Result(request_id, state));
+  });
+}
+
+void CommutatorApiImpl::ExecuteActorCommand(RequestId request_id,
+                                            int local_actor_id,
+                                            VariantData command) {
+  if (local_actor_id < 0 ||
+      static_cast<std::size_t>(local_actor_id) >= devices_.size()) {
+    reply_(smart_home_wire::Error(request_id, 1, 1));
+    return;
   }
-
-  ReturnResultApi ret{protocol_context()};
-  auto api_call = ApiCallAdapter{ApiContext{ret}, *stream_};
-
-  api_call->SendResult(result.request_id, std::move(hw_devices));
-  api_call.Flush();
+  ReplyWhenReady(devices_[local_actor_id]->Execute(command), request_id);
 }
 
-void CommutatorApiImpl::ExecuteActorCommand(
-    PromiseResult<DeviceStateData> result, int local_actor_id,
-    VariantData command) {
-  auto dev_id = static_cast<std::size_t>(local_actor_id);
-
-  if (dev_id >= commutator_->devices_.size()) {
-    // index out of range
-    ReturnResultApi ret{protocol_context()};
-    auto api_call = ApiCallAdapter{ApiContext{ret}, *stream_};
-    api_call->SendError(result.request_id, 1, 1);
+void CommutatorApiImpl::QueryState(RequestId request_id, int local_device_id) {
+  if (local_device_id < 0 ||
+      static_cast<std::size_t>(local_device_id) >= devices_.size()) {
+    reply_(smart_home_wire::Error(request_id, 2, 1));
+    return;
   }
-  auto& device = commutator_->devices_[dev_id];
-  auto state_action = device->Execute(command);
-  state_action->StatusEvent().Subscribe(OnResult{
-      [pc{&protocol_context()}, stream{stream_}, result](auto const& action) {
-        ReturnResultApi ret{*pc};
-        auto api_call = ApiCallAdapter{ApiContext{ret}, *stream};
-        api_call->SendResult(result.request_id, action.state_data());
-        api_call.Flush();
-      }});
+  ReplyWhenReady(devices_[local_device_id]->GetState(), request_id);
 }
 
-void CommutatorApiImpl::QueryState(PromiseResult<DeviceStateData> result,
-                                   int local_device_id) {
-  auto dev_id = static_cast<std::size_t>(local_device_id);
-
-  if (dev_id >= commutator_->devices_.size()) {
-    // index out of range
-    ReturnResultApi ret{protocol_context()};
-    auto api_call = ApiCallAdapter{ApiContext{ret}, *stream_};
-    api_call->SendError(result.request_id, 2, 1);
-  }
-  auto& device = commutator_->devices_[dev_id];
-  auto state_action = device->GetState();
-  state_action->StatusEvent().Subscribe(OnResult{
-      [pc{&protocol_context()}, stream{stream_}, result](auto const& action) {
-        ReturnResultApi ret{*pc};
-        auto api_call = ApiCallAdapter{ApiContext{ret}, *stream};
-        api_call->SendResult(result.request_id, action.state_data());
-        api_call.Flush();
-      }});
-}
-
-void CommutatorApiImpl::QueryAllSensorStates() {
-  commutator_->SendSensorsState(stream_);
-}
-
+void CommutatorApiImpl::QueryAllSensorStates() { query_all_(); }
 }  // namespace ae

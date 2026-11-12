@@ -17,38 +17,31 @@
 #ifndef API_API_H_
 #define API_API_H_
 
-#include "aether/all.h"
-
+#include "aether/api_protocol/api_protocol.h"
 #include "api/types.h"
 
 namespace ae {
-class SmartHomeCommutatorApi : public ApiClassImpl<SmartHomeCommutatorApi> {
+class SmartHomeCommutatorApi : public DeclareApi<SmartHomeCommutatorApi> {
  public:
-  using ApiClassImpl::ApiClassImpl;
-
   virtual ~SmartHomeCommutatorApi() = default;
-
-  virtual void GetSystemStructure(
-      PromiseResult<std::vector<HardwareDevice>> result) = 0;
-
-  virtual void ExecuteActorCommand(PromiseResult<DeviceStateData> result,
-                                   int local_actor_id, VariantData command) = 0;
-  virtual void QueryState(PromiseResult<DeviceStateData> result,
-                          int local_device_id) = 0;
+  // The Java client uses the original request/reply protocol. The request ID
+  // remains an explicit first wire argument now that the SDK uses push APIs.
+  virtual void GetSystemStructure(RequestId request_id) = 0;
+  virtual void ExecuteActorCommand(RequestId request_id, int local_actor_id,
+                                   VariantData command) = 0;
+  virtual void QueryState(RequestId request_id, int local_device_id) = 0;
   virtual void QueryAllSensorStates() = 0;
-
-  AE_METHODS(RegMethod<10, &SmartHomeCommutatorApi::GetSystemStructure>,
-             RegMethod<4, &SmartHomeCommutatorApi::ExecuteActorCommand>,
-             RegMethod<5, &SmartHomeCommutatorApi::QueryState>,
-             RegMethod<6, &SmartHomeCommutatorApi::QueryAllSensorStates>);
+  API_LIST(METHOD(10, GetSystemStructure), METHOD(4, ExecuteActorCommand),
+           METHOD(5, QueryState), METHOD(6, QueryAllSensorStates));
 };
 
-class SmartHomeClientApi : public ApiClass {
+class SmartHomeClientApi : public DeclareApi<SmartHomeClientApi> {
  public:
-  SmartHomeClientApi(ProtocolContext& protocol_context);
-
-  Method<3, void(int local_device_id, DeviceStateData state)>
-      device_state_updated;
+  void device_state_updated(int local_device_id, DeviceStateData state) {
+    ClientMethod<&SmartHomeClientApi::device_state_updated>(local_device_id,
+                                                            std::move(state));
+  }
+  API_LIST(METHOD(3, device_state_updated));
 };
 
 }  // namespace ae

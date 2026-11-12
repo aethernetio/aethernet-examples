@@ -15,48 +15,59 @@
  */
 
 #include "commutator.h"
+
+#include <algorithm>
+
 #include "commutator_api_impl.h"
 
 namespace ae {
-Commutator::Commutator(Client::ptr const& client)
-    : client_{client}, client_api_{protocol_context_} {
+Commutator::Commutator(AeContext const& context, Client::ptr const& client)
+    : context_{context}, client_{client}, protocol_context_{context} {
   new_request_sub_ =
-      client->message_stream_manager().new_stream_event().Subscribe(
-          MethodPtr<&Commutator::OnNewStream>{this});
+      client_->message_stream_manager().new_port_event().Subscribe(
+          [this](P2pPortHandle& port) { OnNewPort(port); });
 }
 
 void Commutator::AddDevice(std::unique_ptr<IDevice>&& device) {
   assert(device && "Device cannot be null");
+  device->SetLocalId(static_cast<int>(devices_.size()));
   devices_.push_back(std::move(device));
 }
 
-void Commutator::SendSensorsState(RcPtr<P2pStream> const& stream) {
+void Commutator::SendSensorsState(std::shared_ptr<P2pStream> const& stream) {
+  std::erase_if(pending_states_, [](auto const& op) { return op->finished(); });
   for (std::size_t i = 0; i < devices_.size(); ++i) {
-    auto state_action = devices_[i]->GetState();
-    state_action->StatusEvent().Subscribe(OnResult{[stream, this,
-                                                    i](auto const& action) {
-      auto api_call = ApiCallAdapter{ApiContext{client_api_}, *stream};
-      api_call->device_state_updated(static_cast<int>(i), action.state_data());
-      api_call.Flush();
-    }});
+    auto operation = devices_[i]->GetState();
+    pending_states_.push_back(operation);
+    operation->Then([stream, i](auto const& state) {
+      SmartHomeClientApi api;
+      ApiContext call{api};
+      call->device_state_updated(static_cast<int>(i), state);
+      stream->Write(std::move(call).Pack());
+    });
   }
 }
 
-void Commutator::OnNewStream(RcPtr<P2pStream> stream) {
-  // store the stream inside the subscription
-  streams_[stream->destination()] = stream;
-  new_message_subs_.Push(stream->out_data_event().Subscribe(
-      [stream_view{RcPtrView{stream}}, this](DataBuffer const& data) {
-        if (auto stream = stream_view.lock(); stream) {
-          OnNewMessage(stream, data);
-        }
-      }));
+void Commutator::OnNewPort(P2pPortHandle& port) {
+  auto destination = port.destination();
+  auto stream = std::make_shared<P2pStream>(context_, client_.Load(),
+                                            destination, std::move(port));
+  auto session = std::make_unique<StreamSession>();
+  session->stream = stream;
+  session->receive_sub = stream->out_data_event().Subscribe(
+      [weak = std::weak_ptr<P2pStream>{stream}, this](DataBuffer const& data) {
+        if (auto locked = weak.lock()) OnNewMessage(std::move(locked), data);
+      });
+  streams_[destination] = std::move(session);
 }
 
-void Commutator::OnNewMessage(RcPtr<P2pStream> stream, DataBuffer const& data) {
-  auto api_impl = CommutatorApiImpl{*this, std::move(stream)};
-  auto parser = ApiParser{protocol_context_, data};
-  parser.Parse(api_impl);
+void Commutator::OnNewMessage(std::shared_ptr<P2pStream> stream,
+                              DataBuffer const& data) {
+  CommutatorApiImpl api{
+      devices_, pending_states_,
+      [stream](DataBuffer reply) { stream->Write(std::move(reply)); },
+      [this, stream] { SendSensorsState(stream); }};
+  ApiParser parser{protocol_context_, data};
+  parser.Parse(api);
 }
-
 }  // namespace ae

@@ -23,7 +23,8 @@
 
 namespace ae {
 std::unique_ptr<IDevice> TemperatureFactory::CreateDevice(
-    [[maybe_unused]] ActionContext action_context, TempSensorConfig* config) {
+    [[maybe_unused]] AeContext const& action_context,
+    TempSensorConfig* config) {
   switch (config->type) {
     case TempSensorType::kEspTempSensor:
 #if defined ESP_PLATFORM && ESP32_HAS_TEMP_SENSOR
