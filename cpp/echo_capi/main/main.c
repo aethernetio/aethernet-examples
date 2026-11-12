@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
+#include "aether/aether_c/aether_capi.h"
 #include "stdio.h"
 #include "stdlib.h"
-
-#include "aether/capi.h"
 
 #define TEST_UID "3ac93165-3d37-4970-87a6-fa4ee27744e4"
 
@@ -58,11 +57,13 @@ int EchoExample() {
       .default_client = &client_config,
   };
 
-  AetherInit(&aether_config);
+  if (AetherInit(&aether_config) != 0) {
+    return 1;
+  }
   printf(" >>> Send message %s\n", message);
   SendStr(CUidFromString(ECHO_SERVICE_UID), message, NULL, NULL);
 
-  while (AetherExcited() == AE_NOK) {
+  while (AetherExcited() == -1) {
     uint64_t time = AetherUpdate();
     AetherWait(time);
   }
@@ -70,9 +71,9 @@ int EchoExample() {
 }
 
 #ifdef ESP_PLATFORM
-#  include <freertos/FreeRTOS.h>
-#  include <esp_log.h>
-#  include <esp_task_wdt.h>
+#include <esp_log.h>
+#include <esp_task_wdt.h>
+#include <freertos/FreeRTOS.h>
 
 void app_main() {
   esp_task_wdt_config_t config_wdt = {

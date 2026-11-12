@@ -63,7 +63,7 @@ class Bob {
                TimeSynchronizer& time_synchronizer);
 
  private:
-  void OnNewStream(ae::P2pPortHandle p2p_port);
+  void OnNewStream(ae::P2pPortHandle& p2p_port);
   void OnMessageReceived(ae::DataBuffer const& data_buffer);
 
   ae::AetherApp* aether_app_;
@@ -80,30 +80,33 @@ int main() {
   std::unique_ptr<Alice> alice;
   std::unique_ptr<Bob> bob;
   TimeSynchronizer time_synchronizer;
+  ae::Subscription bob_select_subscription;
+  ae::Subscription alice_select_subscription;
 
   // register or load clients
   auto& bob_select = aether_app->aether()->SelectClient(kParentUid, "Bob");
-  bob_select.result_event().Subscribe([&](auto const& bob_res) {
-    if (bob_res) {
-      bob =
-          ae::make_unique<Bob>(*aether_app, bob_res.value(), time_synchronizer);
-      auto& alice_select =
-          aether_app->aether()->SelectClient(kParentUid, "Alice");
-      alice_select.result_event().Subscribe(
-          [&, uid = bob_res.value()->uid()](auto const& alice_res) {
-            if (alice_res) {
-              alice = ae::make_unique<Alice>(*aether_app, alice_res.value(),
-                                             time_synchronizer, uid);
-              // Save the current aether state
-              aether_app->aether().Save();
-            } else {
-              aether_app->Exit(1);
-            }
-          });
-    } else {
-      aether_app->Exit(1);
-    }
-  });
+  bob_select_subscription =
+      bob_select.result_event().Subscribe([&](auto const& bob_res) {
+        if (bob_res) {
+          bob = ae::make_unique<Bob>(*aether_app, bob_res.value(),
+                                     time_synchronizer);
+          auto& alice_select =
+              aether_app->aether()->SelectClient(kParentUid, "Alice");
+          alice_select_subscription = alice_select.result_event().Subscribe(
+              [&, uid = bob_res.value()->uid()](auto const& alice_res) {
+                if (alice_res) {
+                  alice = ae::make_unique<Alice>(*aether_app, alice_res.value(),
+                                                 time_synchronizer, uid);
+                  // Save the current aether state
+                  aether_app->aether().Save();
+                } else {
+                  aether_app->Exit(1);
+                }
+              });
+        } else {
+          aether_app->Exit(1);
+        }
+      });
 
   while (!aether_app->IsExited()) {
     auto next_time = aether_app->Update(ae::Now());
@@ -167,7 +170,7 @@ Bob::Bob(ae::AetherApp& aether_app, ae::Client::ptr client_bob,
           client_bob_->message_stream_manager().new_port_event().Subscribe(
               ae::MethodPtr<&Bob::OnNewStream>{this})} {}
 
-void Bob::OnNewStream(ae::P2pPortHandle p2p_port) {
+void Bob::OnNewStream(ae::P2pPortHandle& p2p_port) {
   p2pstream_ = std::make_unique<ae::P2pStream>(*aether_app_, client_bob_.Load(),
                                                p2p_port.destination(),
                                                std::move(p2p_port));

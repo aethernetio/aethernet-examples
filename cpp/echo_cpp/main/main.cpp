@@ -15,6 +15,7 @@
  */
 
 #include <iostream>
+#include <memory>
 #include <string_view>
 
 #include "aether/all.h"
@@ -34,7 +35,7 @@ void ReceiveMessage(ae::DataBuffer const& data) {
                        data.size()});
 }
 
-void SendMessage(ae::RcPtr<ae::P2pStream> const& message_stream) {
+void SendMessage(std::shared_ptr<ae::P2pStream> const& message_stream) {
   constexpr auto message = std::string_view{"Hello echo!"};
   std::cout << ae::Format(" >>> Send message {}\n", message);
   message_stream->Write(ae::DataBuffer{message.begin(), message.end()});
@@ -43,23 +44,29 @@ void SendMessage(ae::RcPtr<ae::P2pStream> const& message_stream) {
 int EchoExample() {
   auto aether_app = ae::AetherApp::Construct(
       ae::AetherAppContext{}.AddAdapterFactory(&MakeAdapter));
+  std::shared_ptr<ae::P2pStream> stream;
+  ae::Subscription select_subscription;
+  ae::Subscription receive_subscription;
 
   auto& select_client =
       aether_app->aether()->SelectClient(kParentUid, "echo_client");
-  select_client.result_event().Subscribe([&](auto const& result) {
-    if (result) {
-      ae::Client::ptr const& c = result.value();
-      auto ms = c->message_stream_manager().CreateStream(kEchoServiceUid);
-      ms->out_data_event().Subscribe([&, ms](auto const& data) {
-        ReceiveMessage(data);
-        aether_app->Exit(0);
+  select_subscription =
+      select_client.result_event().Subscribe([&](auto const& result) {
+        if (result) {
+          ae::Client::ptr const& c = result.value();
+          stream = std::make_shared<ae::P2pStream>(
+              *aether_app, c.Load(), kEchoServiceUid,
+              c->message_stream_manager().CreatePort(kEchoServiceUid));
+          receive_subscription =
+              stream->out_data_event().Subscribe([&](auto const& data) {
+                ReceiveMessage(data);
+                aether_app->Exit(0);
+              });
+          SendMessage(stream);
+        } else {
+          aether_app->Exit(1);
+        }
       });
-      SendMessage(ms);
-    }
-    else {
-      aether_app->Exit(1);
-    }
-  });
 
   // Wait/Update loop to run aether internal actions
   while (!aether_app->IsExited()) {
@@ -70,16 +77,16 @@ int EchoExample() {
 
 #ifdef ESP_PLATFORM
 ae::ObjPtr<ae::Adapter> MakeAdapter(ae::AetherAppContext const& context) {
-#  ifndef WIFI_SSID
-#    error "Provide WIFI_SSID by -DWIFI_SSID="
-#  endif
-#  ifndef WIFI_PASSWORD
-#    error "Provide WIFI_PASSWORD by -DWIFI_PASSWORD="
-#  endif
+#ifndef WIFI_SSID
+#error "Provide WIFI_SSID by -DWIFI_SSID="
+#endif
+#ifndef WIFI_PASSWORD
+#error "Provide WIFI_PASSWORD by -DWIFI_PASSWORD="
+#endif
 
   return ae::WifiAdapter::ptr::Create(
-      context.domain(), context.aether(), context.poller(),
-      context.dns_resolver(),
+      ae::CreateWith{context.domain()}.with_id(ae::GlobalId::kWiFiAdapter),
+      context.aether(), context.poller(), context.dns_resolver(),
       ae::WiFiInit{
           .wifi_ap = {ae::WiFiAp{
               .creds = {.ssid = WIFI_SSID, .password = WIFI_PASSWORD},
@@ -89,16 +96,16 @@ ae::ObjPtr<ae::Adapter> MakeAdapter(ae::AetherAppContext const& context) {
 }
 #else
 ae::ObjPtr<ae::Adapter> MakeAdapter(ae::AetherAppContext const& context) {
-  return ae::EthernetAdapter::ptr::Create(context.domain(), context.aether(),
-                                          context.poller(),
-                                          context.dns_resolver());
+  return ae::EthernetAdapter::ptr::Create(
+      ae::CreateWith{context.domain()}.with_id(ae::GlobalId::kEthernetAdapter),
+      context.aether(), context.poller(), context.dns_resolver());
 }
 #endif
 
 #ifdef ESP_PLATFORM
-#  include <freertos/FreeRTOS.h>
-#  include <esp_log.h>
-#  include <esp_task_wdt.h>
+#include <esp_log.h>
+#include <esp_task_wdt.h>
+#include <freertos/FreeRTOS.h>
 
 extern "C" void app_main() {
   esp_task_wdt_config_t config_wdt = {

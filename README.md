@@ -39,6 +39,9 @@ git submodule update --init --recursive
 
 Each example directory contains the configuration and build files for its platform. Start with the README inside that directory when one is present.
 
+See [SDK compatibility checks](docs/sdk-compatibility.md) for the desktop C++/C
+build matrix and the remaining smart-home RPC migration and embedded limits.
+
 ## Credentials and device configuration
 
 Never commit Wi-Fi passwords, production keys, registry credentials, or generated client state. Use local configuration files or environment variables and keep them outside version control.

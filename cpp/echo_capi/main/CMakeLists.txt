@@ -22,7 +22,7 @@ if(NOT CM_PLATFORM)
   project("echo-capi" VERSION "1.0.0" LANGUAGES C CXX)
 
   include(../../cmake/CPM.cmake)
-  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#main")
+  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#a7ec61a5db9af36cf6dcc3dee95ef489a09e470b")
 
   add_executable(${PROJECT_NAME} ${src_list})
   target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
