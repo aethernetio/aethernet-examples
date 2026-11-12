@@ -29,7 +29,7 @@ if(NOT CM_PLATFORM)
   project("smart-home-app" VERSION "1.0.0" LANGUAGES C CXX)
 
   include(../../cmake/CPM.cmake)
-  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#08f61d92a795051fcb8c9383e5ba4c8c2c336f89")
+  CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#59153adf1fb8baba088b28b50051fb961e8d6eaf")
 
   add_executable(${PROJECT_NAME} ${src_list})
   target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -52,7 +52,7 @@ else()
     set(TARGET_NAME "${COMPONENT_LIB}")
 
     include(../../cmake/CPM.cmake)
-    CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#08f61d92a795051fcb8c9383e5ba4c8c2c336f89")
+    CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#59153adf1fb8baba088b28b50051fb961e8d6eaf")
     target_link_libraries(${TARGET_NAME} PRIVATE aether)
 
     if (NOT "${WIFI_SSID}" STREQUAL "")
