@@ -32,7 +32,7 @@ set(USER_CONFIG user_config.h CACHE PATH "" FORCE)
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
 include(../cmake/CPM.cmake)
-CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#08f61d92a795051fcb8c9383e5ba4c8c2c336f89")
+CPMAddPackage(URI "https://github.com/aethernetio/aether-client-cpp.git#59153adf1fb8baba088b28b50051fb961e8d6eaf")
 
 add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE ping-pong.cpp)

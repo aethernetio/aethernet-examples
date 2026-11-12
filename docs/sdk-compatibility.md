@@ -1,14 +1,21 @@
 # SDK compatibility checks
 
 The modern desktop projects and C echo, C++ echo and SmartHome ESP-IDF projects
-pin Aether SDK `08f61d92a795051fcb8c9383e5ba4c8c2c336f89`. Its dependency set
-includes Tele `a6e632daf8b7071f893d965c22f461b9b47aef46`, Objects
-`38a9b21f467e35daa57233814ffde75d7503bd03`, misc `6839624` and numeric `9d79bd7`.
+pin Aether SDK `59153adf1fb8baba088b28b50051fb961e8d6eaf`. Its dependency set
+follows Tele `main` and pins Objects
+`80fbb4c33bebd660c9bdf0687311cee30de74f39`, misc `6839624` and numeric `9d79bd7`.
+Telemetry is intentionally a moving branch; validation records its resolved SHA
+alongside the immutable SDK revision.
+
+The Tele-main follow-up resolved Tele to
+`65eda03928030b8cc04432e2f98ba4e3242b6f27`. All four desktop Release builds below
+passed again, including the SmartHome CTest (1/1, 0.31 seconds), and all three
+ESP32-C6 firmware builds passed again with the sizes below unchanged.
 
 Local development can override the SDK with
 `-DCPM_aether-client-cpp_SOURCE=/absolute/path/to/aether-client-cpp`.
-Release verification uses remote dependency checkouts at exact published revisions,
-with no local source overrides.
+Release verification records actual remote Git HEADs, including the resolved
+Telemetry main head, with no local source overrides.
 
 Build each desktop project in a separate directory:
 
