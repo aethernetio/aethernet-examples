@@ -1,8 +1,12 @@
 # SDK compatibility checks
 
 The modern desktop projects and C echo, C++ echo and SmartHome ESP-IDF projects
-pin Aether SDK `59153adf1fb8baba088b28b50051fb961e8d6eaf`. Its dependency set
-follows Tele `main` and pins Objects
+pin Aether SDK `6227ac93cf01351fee1d890b18cb27f362949100`. It follows Tele
+`main` and pins Objects `fa4cd4d`, misc `6839624` and numeric `d5969e7`.
+
+The historical results below use Aether SDK
+`59153adf1fb8baba088b28b50051fb961e8d6eaf`. Its dependency set follows Tele
+`main` and pins Objects
 `80fbb4c33bebd660c9bdf0687311cee30de74f39`, misc `6839624` and numeric `9d79bd7`.
 Telemetry is intentionally a moving branch; validation records its resolved SHA
 alongside the immutable SDK revision.
